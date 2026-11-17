@@ -159,8 +159,11 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .zonewrap video{display:block;width:min(360px,31.5vh);max-width:100%;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#0b0b0c}
 .zone{position:absolute;background:rgba(216,255,62,.14);border:1px dashed rgba(216,255,62,.5)}
 .zone u{position:absolute;left:5px;top:3px;font-size:9.5px;color:#d8ff3e;text-decoration:none;font-weight:600;letter-spacing:.03em}
-@font-face{font-family:"PG Headline";src:url(fonts/BarlowSemiCondensed-ExtraBold.woff2) format("woff2");font-weight:800;font-display:swap}
-@font-face{font-family:"PG Headline Narrow";src:url(fonts/BarlowCondensed-ExtraBold.woff2) format("woff2");font-weight:800;font-display:swap}
+@font-face{font-family:"Vanguard CF";src:url(fonts/VanguardCF-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Poppins";src:url(fonts/Poppins-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Poppins";src:url(fonts/Poppins-ExtraBold.woff2) format("woff2");font-weight:800;font-display:swap}
+@font-face{font-family:"Impact LT Std";src:url(fonts/ImpactLTStd.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Arimo";src:url(fonts/Arimo-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"General Sans";src:url(fonts/GeneralSans-Medium.woff2) format("woff2");font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:"General Sans";src:url(fonts/GeneralSans-MediumItalic.woff2) format("woff2");font-weight:500;font-style:italic;font-display:swap}
 @font-face{font-family:"General Sans";src:url(fonts/GeneralSans-Semibold.woff2) format("woff2");font-weight:600;font-style:normal;font-display:swap}
@@ -168,7 +171,7 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 /* post maker */
 .pm-tpls{display:flex;gap:9px;overflow-x:auto;margin:0 calc(var(--pad) * -1);padding:2px var(--pad) 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .pm-tpls::-webkit-scrollbar{display:none}
-.pm-tpl{flex:none;width:118px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:7px;transition:.13s}
+.pm-tpl{flex:none;width:124px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:7px;transition:.13s}
 .pm-tpl:hover{border-color:var(--line2)}
 .pm-tpl[aria-pressed="true"]{border-color:var(--accent);background:var(--surface2);box-shadow:0 0 0 1px var(--accent) inset}
 .pm-tpl canvas{width:100%;height:auto;border-radius:8px;display:block;background:#111}
@@ -1064,312 +1067,359 @@ TOOLS.push({ id:"safezones", cat:"Extras", icon:"zones", name:"Safe zones",
     viewCleanups.push(function(){ if (vid) vid.pause(); if (url) URL.revokeObjectURL(url); });
   }});
 
-/* ========== Post maker — Pubity daily templates ========== */
+/* ========== Post maker — layouts copied from the "Pubity Headline" Canva brand template ========== */
 var PM_LOGO = null;
-var PM_YELLOW = "#FFEB00";
+var PM_FONTS = {
+  vanguard: { css:'"Vanguard CF"', weight:700, cap:0.767 },
+  poppins:  { css:'"Poppins"',     weight:700, cap:0.705 },
+  impact:   { css:'"Impact LT Std"', weight:400, cap:0.714 },
+  general:  { css:'"General Sans"', weight:700, cap:0.70 },
+  arimo:    { css:'"Arimo"',       weight:400, cap:0.716 }
+};
+/* alpha curves sampled from the Canva gradient assets (fraction of asset height -> alpha) */
+var PM_CURVE_BLACK = [[0,0],[.081,.063],[.162,.25],[.243,.49],[.324,.725],[.405,.88],[.486,.96],[.568,.99],[.649,.996],[.73,1],[1,1]];
+var PM_CURVE_SOFT  = [[0,0],[.03,.004],[.11,.031],[.19,.086],[.27,.169],[.351,.275],[.432,.404],[.514,.545],[.595,.678],[.676,.796],[.757,.882],[.838,.949],[.919,.984],[1,1]];
+var PM_CURVE_STRIP = [[0,0],[.125,.016],[.25,.125],[.375,.235],[.5,.408],[.625,.553],[.75,.66],[.875,.765],[1,.87]];
+var PM_BLUE = "0,11,255", PM_BLACK = "0,0,0", PM_YELLOW = "rgb(255,246,0)";
+
 function pmLoadAssets(){
-  var faces = [
-    '800 100px "PG Headline"', '800 100px "PG Headline Narrow"',
-    '500 40px "General Sans"', 'italic 500 40px "General Sans"', '600 40px "General Sans"', '700 40px "General Sans"'
-  ];
-  var ps = faces.map(function(f){
-    try { return document.fonts.load(f).catch(function(){}); } catch(e){ return Promise.resolve(); }
-  });
+  var faces = ['700 100px "Vanguard CF"','700 100px "Poppins"','800 100px "Poppins"','400 100px "Impact LT Std"','700 40px "General Sans"','500 40px "General Sans"','400 40px "Arimo"'];
+  var ps = faces.map(function(f){ try { return document.fonts.load(f).catch(function(){}); } catch(e){ return Promise.resolve(); } });
   ps.push(new Promise(function(res){
     if (PM_LOGO) return res();
-    var i = new Image();
-    i.onload = function(){ PM_LOGO = i; res(); };
-    i.onerror = function(){ res(); };
-    i.src = "pubity-p.png";
+    var i = new Image(); i.onload = function(){ PM_LOGO = i; res(); }; i.onerror = function(){ res(); }; i.src = "pubity-p.png";
   }));
   return Promise.all(ps);
 }
+
+/* Every entry mirrors one page of the Canva file (page numbers in `page`). Coordinates are in 1080x1350 design pixels. */
 var PM_TEMPLATES = [
-  { id:"headline", name:"Headline", desc:"The daily post — photo, fade, rule + P, big headline", w:1080, h:1350, fields:["headline"], photo:true, swipe:false, size:142 },
-  { id:"carousel", name:"Carousel cover", desc:"Headline post with the SWIPE tag", w:1080, h:1350, fields:["headline"], photo:true, swipe:true, size:142 },
-  { id:"quote", name:"Headline + quote", desc:"Headline with a quote underneath, P at the bottom", w:1080, h:1350, fields:["headline","sub"], photo:true, swipe:false, size:132 },
-  { id:"inset", name:"Screenshot inset", desc:"Photo with a round screenshot or second image", w:1080, h:1350, fields:["headline","inset"], photo:true, swipe:true, size:136 },
-  { id:"title", name:"Title + name", desc:"Movie / TV slide — white title, yellow name under it", w:1080, h:1350, fields:["headline","sub"], photo:true, swipe:false, size:146 },
-  { id:"text", name:"Explainer slide", desc:"Black carousel page — heading and body copy", w:1080, h:1350, fields:["headline","body"], photo:false, swipe:false, size:100 },
-  { id:"reel", name:"Reel cover", desc:"9:16 thumbnail — headline in the centre safe zone", w:1080, h:1920, fields:["headline"], photo:true, swipe:false, size:136 },
-  { id:"cta", name:"Follow end card", desc:"Last slide — the P and a follow line", w:1080, h:1350, fields:["headline","sub"], photo:false, swipe:false, size:108 }
+  { id:"pubity", brand:"Pubity", name:"Headline", page:"pages 13–16, 18, 20 + most of the file", desc:"The daily post. Centred Vanguard headline over the black fade, P and rule above it.",
+    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704}],
+    head:{font:"vanguard",size:107,lh:0.956,ls:0.008,align:"center",x:21,w:1038,bottom:1293,upper:true,shadow:[0.6,4,30]},
+    rule:true, swipe:true, insetOpt:{cx:806,cy:268,r:268} },
+  { id:"pubity-inset", brand:"Pubity", name:"Headline + circle", page:"pages 13, 20 and 85 more", desc:"Same post with the round screenshot inset.",
+    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704}],
+    head:{font:"vanguard",size:107,lh:0.956,ls:0.008,align:"center",x:21,w:1038,bottom:1293,upper:true,shadow:[0.6,4,30]},
+    rule:true, swipe:true, inset:{cx:806,cy:268,r:268} },
+  { id:"pubity-quote", brand:"Pubity", name:"Quote + name", page:"page 106", desc:"Quote headline with the yellow attribution underneath.",
+    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:815,h:704}],
+    head:{font:"vanguard",size:95,lh:0.95,ls:0.008,align:"center",x:29,w:1022,top:851,upper:true,shadow:[0.6,4,30]},
+    sub:{font:"general",size:39,lh:54,align:"left",x:60,w:960,top:1239,color:PM_YELLOW,upper:true,label:"Name / attribution",placeholder:"JAMES GUNN"},
+    rule:true, swipe:false },
+  { id:"pubity-intro", brand:"Pubity", name:"Intro copy + headline", page:"page 80", desc:"Paragraph of context above the headline.",
+    layers:[{curve:"black",color:PM_BLACK,y:680,h:704},{curve:"black",color:PM_BLACK,y:714,h:704}],
+    head:{font:"vanguard",size:128,lh:0.953,ls:0.008,align:"center",x:25,w:1030,top:926,upper:true,shadow:[0.6,4,30]},
+    sub:{font:"arimo",size:25,lh:35,align:"center",x:117,w:846,top:608,color:"#fff",label:"Intro copy",placeholder:"A few lines of context go here, centred above the headline.",area:true},
+    rule:false, swipe:false },
+  { id:"pubity-impact", brand:"Pubity", name:"Impact, left", page:"page 53", desc:"Older style — Impact headline set left, circle inset, P top-left.",
+    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:797,h:704},{curve:"black",color:PM_BLACK,y:813,h:704}],
+    head:{font:"impact",size:109,lh:0.95,ls:0.008,align:"left",x:33,w:979,top:969,upper:true,shadow:[0.6,4,30]},
+    logoAt:{x:33,y:891,h:40}, inset:{cx:736,cy:583,r:288}, rule:false, swipe:false },
+  { id:"pubity-card", brand:"Pubity", name:"Screenshot card", page:"page 17", desc:"White page with a rounded screenshot in the middle.",
+    bg:"rgb(253,253,253)", card:{x:273,y:555,w:598,h:412,r:28}, noPhoto:true, rule:false, swipe:false },
+  { id:"dads-left", brand:"@dads", name:"Left + TRENDING", page:"pages 2–3", desc:"Poppins headline set left, blue TRENDING pill, @DADS bottom right, blue fade.",
+    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
+    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"left",x:37,w:961,top:932,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
+    pill:{text:"TRENDING",x:37,y:890}, handle:{text:"@DADS",x:1046,y:1288,align:"right",size:36}, swipe:false },
+  { id:"dads-centre", brand:"@dads", name:"Centred + TRENDING", page:"page 5", desc:"Centred Poppins headline with the TRENDING pill above it.",
+    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
+    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:60,w:961,top:938,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
+    pill:{text:"TRENDING",cx:540,y:893}, handle:{text:"@DADS",x:1046,y:1288,align:"right",size:36}, swipe:false },
+  { id:"dads-pill", brand:"@dads", name:"Centred + @DADS pill", page:"page 7", desc:"Centred headline with the @DADS pill above it.",
+    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
+    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:60,w:961,top:948,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
+    pill:{text:"@DADS",cx:540,y:893}, swipe:false },
+  { id:"dads-black", brand:"@dads", name:"Centred, black fade", page:"pages 8–9", desc:"Centred headline on the black fade, @DADS centred underneath.",
+    layers:[{curve:"soft",color:PM_BLACK,y:332,h:1425}],
+    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:78,w:961,top:883,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
+    handle:{text:"@DADS",cx:540,y:1304,align:"center",size:42}, swipe:false },
+  { id:"dads-vanguard-left", brand:"@dads", name:"Vanguard, left", page:"pages 10–11", desc:"Vanguard headline set left with the TRENDING pill.",
+    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
+    head:{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"left",x:42,w:996,top:963,upper:true,shadow:[0.6,4,30]},
+    pill:{text:"TRENDING",x:42,y:917}, swipe:false },
+  { id:"dads-vanguard-centre", brand:"@dads", name:"Vanguard, centred", page:"page 12", desc:"Centred Vanguard headline, @DADS underneath.",
+    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
+    head:{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"center",x:21,w:1038,top:931,upper:true,shadow:[0.6,4,30]},
+    handle:{text:"@DADS",cx:540,y:1307,align:"center",size:36}, swipe:false },
+  { id:"dads-impact", brand:"@dads", name:"Impact + keyword", page:"page 1", desc:"Impact headline with a blue keyword and a one-line sub-head.",
+    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704},{curve:"soft",color:PM_BLACK,y:61,h:1425}],
+    head:{font:"impact",size:86,lh:0.956,ls:0.008,align:"center",x:176,w:702,top:852,upper:true,shadow:[0.6,4,30],kw:"color",kwColor:"rgb(0,10,255)"},
+    sub:{font:"vanguard",size:34.7,lh:48,align:"center",x:215,w:651,top:1265,color:"#fff",label:"Sub-head",placeholder:"This is what fatherhood is all about"},
+    swipe:false },
+  { id:"dads-wide", brand:"@dads", name:"Poppins, black band", page:"page 6", desc:"Photo on top, solid black band with a five-line Poppins headline.",
+    layers:[{curve:"strip",color:"7,0,7",y:749,h:158}], solidBelow:907,
+    head:{font:"poppins",size:69.7,lh:73,ls:0,align:"center",x:70,w:950,top:900,upper:true,shadow:[0.6,3,24],kw:"bold"},
+    pill:{text:"@DADS",cx:540,y:846}, swipe:false },
+  { id:"dads-split", brand:"@dads", name:"Two photos + captions", page:"page 4", desc:"Top and bottom photo, a caption on each.",
+    split:true, cap:{font:"poppins",size:42.7,lh:44.5,align:"center",x:60,w:960,upper:true,shadow:[0.6,3,24]},
+    swipe:false }
 ];
+
 function pmPlaceholder(w,h){
   var c = newCanvas(w,h), x = c.getContext("2d");
   var g = x.createLinearGradient(0,0,w,h);
-  g.addColorStop(0,"#3a4a5c"); g.addColorStop(0.55,"#1d2630"); g.addColorStop(1,"#0d1116");
+  g.addColorStop(0,"#5b6b7d"); g.addColorStop(0.55,"#2d3742"); g.addColorStop(1,"#141a20");
   x.fillStyle = g; x.fillRect(0,0,w,h);
   var r = x.createRadialGradient(w*0.62,h*0.3,10,w*0.62,h*0.3,w*0.6);
-  r.addColorStop(0,"rgba(255,235,0,.22)"); r.addColorStop(1,"rgba(255,235,0,0)");
+  r.addColorStop(0,"rgba(255,255,255,.18)"); r.addColorStop(1,"rgba(255,255,255,0)");
   x.fillStyle = r; x.fillRect(0,0,w,h);
   return c;
 }
 function pmRoundRect(ctx,x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
   ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
-function pmSetFont(ctx, weight, size, family, italic, tracking){
-  ctx.font = (italic?"italic ":"") + weight + " " + size + 'px "' + family + '"';
-  if ("letterSpacing" in ctx) ctx.letterSpacing = (tracking||0)*size + "px";
+function pmFont(ctx, key, size, weight, ls){
+  var f = PM_FONTS[key] || PM_FONTS.vanguard;
+  ctx.font = (weight || f.weight) + " " + size + "px " + f.css;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = ((ls||0)*size) + "px";
 }
-function pmWrap(ctx, text, maxW){
+function pmCurve(ctx, W, H, layer){
+  var curve = layer.curve === "soft" ? PM_CURVE_SOFT : layer.curve === "strip" ? PM_CURVE_STRIP : PM_CURVE_BLACK;
+  var y0 = layer.y, y1 = layer.y + layer.h;
+  if (y0 >= H) return;
+  var g = ctx.createLinearGradient(0, y0, 0, y1);
+  curve.forEach(function(p){ g.addColorStop(p[0], "rgba(" + layer.color + "," + p[1] + ")"); });
+  ctx.fillStyle = g; ctx.fillRect(0, Math.max(0,y0), W, Math.min(H,y1) - Math.max(0,y0));
+}
+function pmPhoto(ctx, img, x, y, w, h, s){
+  var base = Math.max(w/img.width, h/img.height) * (s.zoom||1);
+  var dw = img.width*base, dh = img.height*base;
+  ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+  ctx.drawImage(img, x + (w-dw)*(s.fx==null?0.5:s.fx), y + (h-dh)*(s.fy==null?0.5:s.fy), dw, dh);
+  ctx.restore();
+}
+function pmWrapWords(ctx, words, maxW){
+  var lines = [], line = [];
+  words.forEach(function(w){
+    if (w.br){ lines.push(line); line = []; return; }
+    var test = line.concat([w]);
+    if (!line.length || pmLineWidth(ctx, test) <= maxW) line = test; else { lines.push(line); line = [w]; }
+  });
+  lines.push(line);
+  return lines;
+}
+function pmLineWidth(ctx, words){
+  var s = "";
+  words.forEach(function(w,i){ s += (i ? " " : "") + w.t; });
+  return ctx.measureText(s).width;
+}
+function pmTokens(text, upper, keywords){
+  var kws = (keywords||"").split(/[,\n]/).map(function(k){ return k.trim().toLowerCase(); }).filter(Boolean);
   var out = [];
-  String(text).split(/\n/).forEach(function(par){
-    var words = par.split(/\s+/).filter(Boolean);
-    if (!words.length){ out.push(""); return; }
-    var line = words[0];
-    for (var i=1;i<words.length;i++){
-      var t = line + " " + words[i];
-      if (ctx.measureText(t).width <= maxW) line = t; else { out.push(line); line = words[i]; }
-    }
-    out.push(line);
+  String(text).split(/\n/).forEach(function(par, pi){
+    if (pi) out.push({ br:true });
+    par.split(/\s+/).filter(Boolean).forEach(function(w){
+      var bare = w.toLowerCase().replace(/^[^a-z0-9@#']+|[^a-z0-9@#']+$/g,"");
+      out.push({ t: upper ? w.toUpperCase() : w, kw: kws.length && (kws.indexOf(bare) > -1 || kws.indexOf(w.toLowerCase()) > -1) });
+    });
   });
   return out;
 }
-/* Draws (or just measures) a block of display text. o: text,x,maxW,size,family,tracking,lineH,color,shadow,align,top|bottom|middle */
+/* Draws (or measures) a text block. o: text, font, size, lh (multiplier if <3, else px), ls, align, x, w, top|bottom, color, shadow [alpha,dy,blur], upper, kw ("bold"|"color"), kwColor, keywords, maxLines */
 function pmBlock(ctx, o, measureOnly){
   ctx.save();
-  var size = o.size, weight = o.weight || 800, fam = o.family || "PG Headline";
-  pmSetFont(ctx, weight, size, fam, o.italic, o.tracking);
-  var lines = pmWrap(ctx, o.text, o.maxW);
-  var scale = 1;
-  lines.forEach(function(l){ var w = ctx.measureText(l).width; if (w > o.maxW) scale = Math.min(scale, o.maxW / w); });
-  if (scale < 1){ size = Math.floor(size*scale); pmSetFont(ctx, weight, size, fam, o.italic, o.tracking); lines = pmWrap(ctx, o.text, o.maxW); }
-  var lh = size * (o.lineH || 1), capH = size * (o.capH || 0.7), blockH = lines.length * lh;
+  var f = PM_FONTS[o.font] || PM_FONTS.vanguard;
+  var size = o.size, tokens = pmTokens(o.text, o.upper, o.keywords), lines, tries = 0;
+  for (;;){
+    pmFont(ctx, o.font, size, o.weight, o.ls);
+    lines = pmWrapWords(ctx, tokens, o.w);
+    var tooWide = lines.some(function(l){ return pmLineWidth(ctx, l) > o.w + 0.5; });
+    if ((lines.length > (o.maxLines || 99) || tooWide) && size > 24 && tries++ < 40) { size = Math.round((size - 1) * 10) / 10; continue; }
+    break;
+  }
+  var lh = o.lh < 3 ? size * o.lh : o.lh * (size / o.size);
+  var capH = size * f.cap, blockH = lines.length * lh;
   var top = o.top != null ? o.top : o.middle != null ? o.middle - blockH/2 : o.bottom - blockH;
+  var capTop = top + (lh - capH)/2;
   if (!measureOnly){
-    ctx.textAlign = o.align || "center"; ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = o.color || "#fff";
-    if (o.shadow){ ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = size*0.22; ctx.shadowOffsetY = size*0.05; }
-    lines.forEach(function(l,i){ ctx.fillText(l, o.x, top + i*lh + (lh + capH)/2); });
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    if (o.shadow){ ctx.shadowColor = "rgba(0,0,0," + o.shadow[0] + ")"; ctx.shadowOffsetY = o.shadow[1]; ctx.shadowBlur = o.shadow[2]; }
+    lines.forEach(function(words, i){
+      var baseline = top + i*lh + (lh + capH)/2;
+      var lineW = pmLineWidth(ctx, words);
+      var x = o.align === "center" ? o.x + (o.w - lineW)/2 : o.align === "right" ? o.x + o.w - lineW : o.x;
+      var spaceW = ctx.measureText(" ").width;
+      words.forEach(function(w, j){
+        var kw = w.kw && o.kw;
+        if (kw === "bold") pmFont(ctx, o.font, size, 800, o.ls); else pmFont(ctx, o.font, size, o.weight, o.ls);
+        ctx.fillStyle = kw === "color" ? (o.kwColor || PM_YELLOW) : (o.color || "#fff");
+        ctx.fillText(w.t, x, baseline);
+        x += ctx.measureText(w.t).width + (j < words.length-1 ? spaceW : 0);
+      });
+    });
   }
   ctx.restore();
-  return { top:top, bottom:top+blockH, height:blockH, lines:lines.length, size:size };
-}
-function pmRule(ctx, W, y, gap, logoH, margin){
-  ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2; ctx.lineCap = "round";
-  var m = margin == null ? 64 : margin;
-  ctx.beginPath();
-  if (gap > 0){ ctx.moveTo(m,y); ctx.lineTo(W/2-gap/2,y); ctx.moveTo(W/2+gap/2,y); ctx.lineTo(W-m,y); }
-  else { ctx.moveTo(m,y); ctx.lineTo(W-m,y); }
-  ctx.stroke();
-  if (logoH > 0) pmLogo(ctx, W/2, y, logoH);
-  ctx.restore();
+  return { top:top, bottom:top+blockH, height:blockH, lines:lines.length, size:size, capTop:capTop, lh:lh };
 }
 function pmLogo(ctx, cx, cy, h){
-  if (!PM_LOGO){ ctx.save(); pmSetFont(ctx,800,h,"PG Headline"); ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("P",cx,cy); ctx.restore(); return; }
+  if (!PM_LOGO){ ctx.save(); pmFont(ctx,"vanguard",h); ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("P",cx,cy); ctx.restore(); return; }
   var w = h * PM_LOGO.width / PM_LOGO.height;
   ctx.drawImage(PM_LOGO, cx - w/2, cy - h/2, w, h);
 }
-function pmSwipe(ctx, W){
+function pmRule(ctx, W, y){
   ctx.save();
-  pmSetFont(ctx, 700, 30, "General Sans", false, 0.02);
-  var label = "SWIPE", tw = ctx.measureText(label).width;
-  var padX = 22, arrowW = 74, gapX = 14, h = 54;
-  var w = padX + arrowW + gapX + tw + padX, x = W - 60 - w, y = 56;
-  ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 14; ctx.shadowOffsetY = 3;
-  pmRoundRect(ctx, x, y, w, h, h/2); ctx.fillStyle = "rgba(10,10,12,.82)"; ctx.fill();
-  ctx.shadowColor = "transparent";
-  ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.lineWidth = 2.5; ctx.stroke();
-  var ay = y + h/2, ax = x + padX;
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 5.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.beginPath(); ctx.moveTo(ax + arrowW, ay); ctx.lineTo(ax + 2, ay); ctx.moveTo(ax + 18, ay - 15); ctx.lineTo(ax + 2, ay); ctx.lineTo(ax + 18, ay + 15); ctx.stroke();
-  ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  ctx.fillText(label, ax + arrowW + gapX, ay + 1);
+  ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W/2 - 30, y); ctx.moveTo(W/2 + 30, y); ctx.lineTo(W - 40, y); ctx.stroke();
+  pmLogo(ctx, W/2, y - 1, 38);
   ctx.restore();
 }
-function pmPattern(ctx, W, H, fromY){
-  if (!PM_LOGO) return;
-  ctx.save(); ctx.beginPath(); ctx.rect(0, fromY, W, H - fromY); ctx.clip();
-  ctx.globalAlpha = 0.07;
-  var h = 46, w = h * PM_LOGO.width / PM_LOGO.height, sx = 150, sy = 120, row = 0;
-  for (var y = fromY - 40; y < H + sy; y += sy, row++){
-    for (var x = (row % 2 ? sx/2 : 0) - 40; x < W + sx; x += sx){ ctx.drawImage(PM_LOGO, x, y, w, h); }
-  }
-  ctx.restore();
-}
-function pmPhoto(ctx, img, W, H, s){
-  var base = Math.max(W/img.width, H/img.height) * s.zoom;
-  var dw = img.width*base, dh = img.height*base;
-  ctx.drawImage(img, (W-dw)*s.fx, (H-dh)*s.fy, dw, dh);
-}
-function pmFade(ctx, W, H, startY, fullY, strength){
-  startY = Math.max(0, Math.round(startY)); fullY = Math.min(H, Math.round(fullY));
-  if (fullY <= startY || strength <= 0) return;
-  var g = ctx.createLinearGradient(0, startY, 0, H), k = (fullY - startY) / (H - startY);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(k*0.55, "rgba(0,0,0,"+(0.72*strength).toFixed(3)+")");
-  g.addColorStop(k, "rgba(0,0,0,"+strength.toFixed(3)+")");
-  g.addColorStop(1, "rgba(0,0,0,"+strength.toFixed(3)+")");
-  ctx.fillStyle = g; ctx.fillRect(0, startY, W, H - startY);
-}
-function pmGuides(ctx, W, H, tpl){
-  ctx.save(); ctx.strokeStyle = "rgba(74,216,255,.85)"; ctx.lineWidth = 2; ctx.setLineDash([12,10]);
-  ctx.strokeRect(60, 60, W-120, H-120);
-  if (tpl.id === "reel"){
-    ctx.fillStyle = "rgba(74,216,255,.12)"; ctx.fillRect(0,0,W,250); ctx.fillRect(0,H-420,W,420);
-    ctx.setLineDash([]); ctx.fillStyle = "rgba(74,216,255,.9)"; pmSetFont(ctx,600,30,"General Sans"); ctx.textAlign="left";
-    ctx.fillText("UI overlap zone", 70, 230); ctx.fillText("Caption / buttons zone", 70, H-380);
-  } else {
-    var sq = (H - W)/2;
-    ctx.strokeStyle = "rgba(255,235,0,.7)"; ctx.setLineDash([6,8]);
-    ctx.beginPath(); ctx.moveTo(0,sq); ctx.lineTo(W,sq); ctx.moveTo(0,H-sq); ctx.lineTo(W,H-sq); ctx.stroke();
-    ctx.setLineDash([]); ctx.fillStyle = "rgba(255,235,0,.9)"; pmSetFont(ctx,600,28,"General Sans"); ctx.textAlign="left";
-    ctx.fillText("Grid crop (1:1) — keep the headline inside", 70, H - sq - 14);
-  }
-  ctx.restore();
-}
-/* The renderer. s = state. opts.guides draws the preview-only overlays. */
-function pmDraw(canvas, tpl, s, opts){
-  var W = tpl.w, H = tpl.h;
-  canvas.width = W; canvas.height = H;
-  var ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-  ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
-  var img = s.img || (opts && opts.placeholder ? opts.placeholder : null);
-  var fam = s.narrow ? "PG Headline Narrow" : "PG Headline";
-  var text = s.upper ? s.headline.toUpperCase() : s.headline;
-  if (!text.trim()) text = s.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here";
-  var maxW = W - 2*s.margin;
-  var head = { text:text, x:W/2, maxW:maxW, size:s.size, family:fam, tracking:s.tracking, lineH:s.lineH, shadow:true };
-
-  if (tpl.id === "headline" || tpl.id === "carousel" || tpl.id === "inset"){
-    if (img) pmPhoto(ctx, img, W, H, s);
-    var m = pmBlock(ctx, Object.assign({ bottom: H - 72 + s.offset }, head), true);
-    var ruleY = m.top - 58;
-    pmFade(ctx, W, H, ruleY - 460, ruleY + 110, s.fade);
-    if (s.pattern) pmPattern(ctx, W, H, ruleY - 60);
-    if (tpl.id === "inset") pmInset(ctx, W, H, s);
-    if (s.logo) pmRule(ctx, W, ruleY, 96, 50);
-    pmBlock(ctx, Object.assign({ bottom: H - 72 + s.offset }, head));
-    if (s.swipe) pmSwipe(ctx, W);
-  }
-  else if (tpl.id === "quote"){
-    if (img) pmPhoto(ctx, img, W, H, s);
-    var sub = s.sub.trim() || "“A quote or extra line goes here.”";
-    var q = pmBlock(ctx, { text:sub, x:W/2, maxW:maxW-60, size:36, family:"General Sans", weight:500, italic:true, lineH:1.3, capH:0.68 }, true);
-    var qTop = H - 150 - q.height + s.offset;
-    var hm = pmBlock(ctx, Object.assign({ bottom: qTop - 34 }, head), true);
-    pmFade(ctx, W, H, hm.top - 420, hm.top + 160, s.fade);
-    if (s.pattern) pmPattern(ctx, W, H, hm.top - 80);
-    pmBlock(ctx, Object.assign({ bottom: qTop - 34 }, head));
-    pmBlock(ctx, { text:sub, x:W/2, maxW:maxW-60, size:36, family:"General Sans", weight:500, italic:true, lineH:1.3, capH:0.68, color:"rgba(255,255,255,.82)", top:qTop, shadow:true });
-    if (s.logo) pmRule(ctx, W, H - 72, 96, 50);
-    if (s.swipe) pmSwipe(ctx, W);
-  }
-  else if (tpl.id === "title"){
-    if (img) pmPhoto(ctx, img, W, H, s);
-    var name = s.upper ? s.sub.toUpperCase() : s.sub;
-    if (!name.trim()) name = s.upper ? "CHARACTER OR NAME" : "Character or name";
-    var nm = pmBlock(ctx, { text:name, x:W/2, maxW:maxW, size:Math.round(s.size*0.46), family:"General Sans", weight:700, lineH:1.15, tracking:0.01 }, true);
-    var nTop = H - 150 - nm.height + s.offset;
-    var tm = pmBlock(ctx, Object.assign({ bottom: nTop - 22 }, head), true);
-    pmFade(ctx, W, H, tm.top - 420, tm.top + 160, s.fade);
-    if (s.pattern) pmPattern(ctx, W, H, tm.top - 80);
-    pmBlock(ctx, Object.assign({ bottom: nTop - 22 }, head));
-    pmBlock(ctx, { text:name, x:W/2, maxW:maxW, size:Math.round(s.size*0.46), family:"General Sans", weight:700, lineH:1.15, tracking:0.01, color:PM_YELLOW, top:nTop, shadow:true });
-    if (s.logo) pmRule(ctx, W, H - 72, 96, 50);
-    if (s.swipe) pmSwipe(ctx, W);
-  }
-  else if (tpl.id === "text"){
-    if (s.img){ ctx.save(); ctx.globalAlpha = 0.28; pmPhoto(ctx, s.img, W, H, s); ctx.restore(); pmFade(ctx, W, H, 0, H*0.6, 0.85); }
-    if (s.pattern) pmPattern(ctx, W, H, 0);
-    if (s.logo) pmRule(ctx, W, 120, 96, 50);
-    var hb = pmBlock(ctx, Object.assign({ top: 230 + s.offset }, head));
-    var body = s.body.trim() || "Body copy for the explainer slide goes here. Keep it to a few short lines.";
-    pmBlock(ctx, { text:body, x:W/2, maxW:maxW-40, size:40, family:"General Sans", weight:500, lineH:1.36, capH:0.68, color:"rgba(255,255,255,.86)", top: hb.bottom + 44 });
-    if (s.swipe) pmSwipe(ctx, W);
-  }
-  else if (tpl.id === "reel"){
-    if (img) pmPhoto(ctx, img, W, H, s);
-    var rm = pmBlock(ctx, Object.assign({ middle: H*0.58 + s.offset }, head), true);
-    var g = ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,"rgba(0,0,0,.25)"); g.addColorStop(0.3,"rgba(0,0,0,0)"); g.addColorStop(0.5,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,"+(0.95*s.fade).toFixed(2)+")");
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    pmFade(ctx, W, H, rm.top - 330, rm.top + 120, s.fade*0.85);
-    if (s.pattern) pmPattern(ctx, W, H, rm.top - 40);
-    if (s.logo) pmRule(ctx, W, rm.top - 58, 96, 50);
-    pmBlock(ctx, Object.assign({ middle: H*0.58 + s.offset }, head));
-  }
-  else if (tpl.id === "cta"){
-    if (s.img){ ctx.save(); ctx.globalAlpha = 0.22; pmPhoto(ctx, s.img, W, H, s); ctx.restore(); }
-    if (s.pattern) pmPattern(ctx, W, H, 0);
-    pmLogo(ctx, W/2, H*0.36 + s.offset*0.5, 240);
-    var cb = pmBlock(ctx, Object.assign({ top: H*0.36 + 190 + s.offset, maxW: maxW - 80 }, head));
-    var handle = s.sub.trim() || "@pubity";
-    pmBlock(ctx, { text:handle, x:W/2, maxW:maxW, size:40, family:"General Sans", weight:600, lineH:1.2, capH:0.68, color:PM_YELLOW, top: cb.bottom + 40 });
-    if (s.logo) pmRule(ctx, W, H - 72, 0, 0);
-  }
-  if (opts && opts.guides) pmGuides(ctx, W, H, tpl);
-  return canvas;
-}
-function pmInset(ctx, W, H, s){
-  var r = s.insetR, cx = s.insetSide === "right" ? W - 60 - r*0.55 : 60 + r*0.55, cy = 70 + r*0.62;
+function pmSwipe(ctx, side){
+  /* measured from the Canva pages: arrow tip x120, bar to x220, text x232-332, centre y59 */
+  var x0 = side === "right" ? 1080 - 37 - 212 : 120, cy = 59;
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 10;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fillStyle = "#111"; ctx.fill();
+  ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(x0, cy); ctx.lineTo(x0 + 14, cy - 9); ctx.lineTo(x0 + 100, cy - 9);
+  ctx.lineTo(x0 + 100, cy + 9); ctx.lineTo(x0 + 14, cy + 9); ctx.closePath(); ctx.fill();
+  pmFont(ctx, "poppins", 27, 700, 0.01);
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText("SWIPE", x0 + 112, cy + 27*0.705/2);
   ctx.restore();
+}
+function pmPill(ctx, p){
+  var w = 143, h = 48, x = p.cx != null ? p.cx - w/2 : p.x, y = p.y;
+  ctx.save();
+  pmRoundRect(ctx, x, y, w, h, 24); ctx.fillStyle = "rgb(0,11,255)"; ctx.fill();
+  pmFont(ctx, "vanguard", 33, 700, 0.01);
+  ctx.fillStyle = "rgb(247,247,247)"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(p.text, x + w/2, y + h/2 + 33*0.767/2);
+  ctx.restore();
+}
+function pmHandle(ctx, hd, text){
+  ctx.save();
+  pmFont(ctx, "vanguard", hd.size, 700, 0.008);
+  ctx.fillStyle = "rgb(253,253,253)"; ctx.textAlign = hd.align === "center" ? "center" : hd.align === "right" ? "right" : "left"; ctx.textBaseline = "alphabetic";
+  ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
+  ctx.fillText(text, hd.cx != null ? hd.cx : hd.x, hd.y + hd.size*0.767/2);
+  ctx.restore();
+}
+function pmInset(ctx, s, def){
+  var r = s.insetR || def.r, cx = s.insetX != null ? s.insetX : def.cx, cy = s.insetY != null ? s.insetY : def.cy;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
   if (s.inset){
-    var sc = Math.max(2*r/s.inset.width, 2*r/s.inset.height) * s.insetZoom;
+    var sc = Math.max(2*r/s.inset.width, 2*r/s.inset.height) * (s.insetZoom||1);
     var dw = s.inset.width*sc, dh = s.inset.height*sc;
-    ctx.drawImage(s.inset, cx - dw/2 + (dw-2*r)*(0.5-s.insetFx), cy - dh/2 + (dh-2*r)*(0.5-s.insetFy), dw, dh);
+    ctx.drawImage(s.inset, cx - dw/2 + (dw-2*r)*(0.5-(s.insetFx==null?0.5:s.insetFx)), cy - dh/2 + (dh-2*r)*(0.5-(s.insetFy==null?0.5:s.insetFy)), dw, dh);
   } else {
-    ctx.fillStyle = "#1b1b1f"; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
-    ctx.fillStyle = "rgba(255,255,255,.5)"; pmSetFont(ctx,600,30,"General Sans"); ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText("Drop a screenshot", cx, cy - 20); ctx.fillText("for the circle", cx, cy + 20);
+    ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
+    ctx.fillStyle = "rgba(255,255,255,.8)"; pmFont(ctx,"general",30,600); ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Drop the screenshot", cx, cy - 18); ctx.fillText("for the circle", cx, cy + 20);
   }
   ctx.restore();
-  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI*2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 9; ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 5, 0, Math.PI*2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.stroke(); ctx.restore();
+}
+function pmGuides(ctx, W, H){
+  ctx.save(); ctx.strokeStyle = "rgba(74,216,255,.85)"; ctx.lineWidth = 2; ctx.setLineDash([12,10]);
+  ctx.strokeRect(40, 40, W-80, H-80);
+  var sq = (H - W)/2;
+  ctx.strokeStyle = "rgba(255,235,0,.7)"; ctx.setLineDash([6,8]);
+  ctx.beginPath(); ctx.moveTo(0,sq); ctx.lineTo(W,sq); ctx.moveTo(0,H-sq); ctx.lineTo(W,H-sq); ctx.stroke();
+  ctx.setLineDash([]); ctx.fillStyle = "rgba(255,235,0,.9)"; pmFont(ctx,"general",26,600,0); ctx.textAlign="left";
+  ctx.fillText("Grid crop (1:1)", 50, H - sq - 12);
+  ctx.restore();
+}
+/* The renderer. One pass per template; opts.guides draws preview-only overlays. */
+function pmDraw(canvas, tpl, s, opts){
+  var W = 1080, H = 1350;
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.fillStyle = tpl.bg || "#000"; ctx.fillRect(0,0,W,H);
+  var img = s.img || (opts && opts.placeholder) || null;
+  var out = {};
+
+  if (tpl.split){
+    var img2 = s.img2 || img;
+    if (img) pmPhoto(ctx, img, 0, 0, W, 675, s);
+    if (img2) pmPhoto(ctx, img2, 0, 675, W, 675, s.img2 ? { zoom:s.zoom2, fx:s.fx2, fy:s.fy2 } : s);
+    var c1 = s.headline.trim() || "Tired dad", c2 = s.sub.trim() || "Also, tired dad";
+    pmBlock(ctx, Object.assign({}, tpl.cap, { text:c1, middle:598 + s.offset, color:"rgb(253,253,253)" }));
+    pmBlock(ctx, Object.assign({}, tpl.cap, { text:c2, middle:1299 + s.offset, color:"rgb(253,253,253)" }));
+    if (opts && opts.guides) pmGuides(ctx, W, H);
+    return canvas;
+  }
+  if (tpl.card){
+    var c = tpl.card;
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.18)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+    pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.fillStyle = "#e9e9e9"; ctx.fill(); ctx.restore();
+    ctx.save(); pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.clip();
+    if (s.img) pmPhoto(ctx, s.img, c.x, c.y, c.w, c.h, s);
+    else { ctx.fillStyle = "#777"; pmFont(ctx,"general",28,600,0); ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Drop the screenshot here", c.x + c.w/2, c.y + c.h/2); }
+    ctx.restore();
+    if (opts && opts.guides) pmGuides(ctx, W, H);
+    return canvas;
+  }
+
+  if (img && !tpl.noPhoto) pmPhoto(ctx, img, 0, 0, W, tpl.solidBelow || H, s);
+  if (tpl.solidBelow){ ctx.fillStyle = "#000"; ctx.fillRect(0, tpl.solidBelow, W, H - tpl.solidBelow); }
+  (tpl.layers || []).forEach(function(L){ pmCurve(ctx, W, H, L); });
+  if (tpl.inset) pmInset(ctx, s, tpl.inset);
+  else if (tpl.insetOpt && s.useInset) pmInset(ctx, s, tpl.insetOpt);
+
+  var h = tpl.head, text = s.headline.trim() || (h.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here");
+  var spec = Object.assign({}, h, { text:text, size: s.size || h.size, keywords: s.keywords, color: h.color || (h.font === "poppins" ? "rgb(253,253,253)" : "#fff"), maxLines: 6 });
+  if (h.bottom != null) spec.bottom = h.bottom + s.offset; else spec.top = h.top + s.offset;
+  if (s.upper === false) spec.upper = false;
+  var m = pmBlock(ctx, spec, true);
+  if (tpl.rule && s.rule !== false) pmRule(ctx, W, m.capTop - 40);
+  if (tpl.logoAt && s.rule !== false) pmLogo(ctx, tpl.logoAt.x + tpl.logoAt.h*0.48, tpl.logoAt.y + tpl.logoAt.h/2 + s.offset, tpl.logoAt.h);
+  pmBlock(ctx, spec);
+  if (tpl.sub){
+    var sub = tpl.sub, st = s.sub.trim() || sub.placeholder;
+    pmBlock(ctx, { text:st, font:sub.font, size:sub.size, lh:sub.lh, ls:sub.ls||0, align:sub.align, x:sub.x, w:sub.w, top:sub.top + (sub.top > m.top ? s.offset : 0), color:sub.color, upper:!!sub.upper, shadow:[0.5,2,14] });
+  }
+  if (tpl.pill) pmPill(ctx, tpl.pill);
+  if (tpl.handle) pmHandle(ctx, tpl.handle, s.handle.trim() || tpl.handle.text);
+  if (s.swipe) pmSwipe(ctx, s.swipeSide);
+  if (opts && opts.guides) pmGuides(ctx, W, H);
+  return canvas;
 }
 
 function postMaker(root){
   var s = {
-    tpl: PM_TEMPLATES[0], img:null, imgName:"", inset:null,
-    headline:"", sub:"", body:"",
-    size:142, tracking:-0.01, lineH:0.93, offset:0, margin:64,
-    upper:true, narrow:true, swipe:false, logo:true, pattern:false, guides:false,
-    zoom:1, fx:0.5, fy:0.5, fade:0.92,
-    insetR:330, insetSide:"left", insetZoom:1, insetFx:0.5, insetFy:0.5,
+    tpl: PM_TEMPLATES[0], img:null, img2:null, inset:null,
+    headline:"", sub:"", keywords:"", handle:"",
+    size:0, offset:0, upper:true, swipe:true, swipeSide:"left", rule:true, guides:false, useInset:false,
+    zoom:1, fx:0.5, fy:0.5, zoom2:1, fx2:0.5, fy2:0.5,
+    insetR:0, insetX:null, insetY:null, insetZoom:1, insetFx:0.5, insetFy:0.5,
     format:"image/jpeg"
   };
-  var placeholder = pmPlaceholder(540, 960);
+  var placeholder = pmPlaceholder(540, 675);
   var loading = el("div","note","Loading fonts…");
   root.appendChild(loading);
   pmLoadAssets().then(function(){ loading.remove(); build(); }).catch(function(){ loading.remove(); build(); });
 
-  var picker, stage, canvas, panel, textPanel, photoPanel, exportRow, timer;
+  var picker, stage, canvas, panel, timer;
 
   function build(){
-    /* 1. template picker */
     field(root, "Template");
     picker = el("div","pm-tpls"); root.appendChild(picker);
     PM_TEMPLATES.forEach(function(t){
       var b = el("button","pm-tpl"); b.type = "button"; b.setAttribute("aria-pressed", String(t === s.tpl));
       var c = document.createElement("canvas"); b.appendChild(c);
-      var thumbState = Object.assign({}, s, { tpl:t, img:null, headline:"", size:t.size, swipe:t.swipe, sub:"", body:"" });
+      var thumbState = Object.assign({}, s, { tpl:t, img:null, headline:"", sub:"", keywords:"", handle:"", size:0, swipe:t.swipe, offset:0 });
       var full = pmDraw(document.createElement("canvas"), t, thumbState, { placeholder: placeholder });
-      c.width = 216; c.height = Math.round(216 * t.h / t.w);
+      c.width = 216; c.height = 270;
       c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
-      b.appendChild(el("b", null, t.name)); b.appendChild(el("span", null, t.w + "×" + t.h));
+      b.appendChild(el("b", null, t.brand + " · " + t.name)); b.appendChild(el("span", null, t.page));
       b.addEventListener("click", function(){
-        s.tpl = t; s.size = t.size; s.swipe = t.swipe; s.offset = 0;
+        s.tpl = t; s.size = 0; s.swipe = !!t.swipe; s.offset = 0; s.insetR = 0; s.insetX = null; s.insetY = null;
         picker.querySelectorAll(".pm-tpl").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
         b.setAttribute("aria-pressed","true");
         rebuildControls(); render();
       });
       picker.appendChild(b);
     });
-    root.appendChild(el("p","vlead", "Pick a template, drop the photo in, write the headline. Drag the preview to move the photo and pinch or use the slider to zoom."));
-
-    /* 2. preview */
+    root.appendChild(el("p","vlead", "Each layout is copied from the Pubity Headline brand template in Canva — same fonts, sizes, spacing and positions. Drop the photo in, write the headline, export at 1080×1350."));
     stage = el("div","pm-stage");
     canvas = document.createElement("canvas");
     stage.appendChild(canvas); root.appendChild(stage);
-    root.appendChild(el("div","pm-hint","Drag to reposition the photo · pinch to zoom"));
+    root.appendChild(el("div","pm-hint","Drag to reposition the photo · pinch or scroll to zoom"));
     wireDrag();
-
     panel = el("div"); root.appendChild(panel);
     rebuildControls();
     render();
@@ -1377,39 +1427,54 @@ function postMaker(root){
 
   function rebuildControls(){
     panel.innerHTML = "";
-    var t = s.tpl;
-    /* photo */
-    dropZone(panel, { accept:"image/*", label: t.photo ? "Choose the photo" : "Add a background photo (optional)", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
-    if (t.fields.indexOf("inset") > -1){
-      dropZone(panel, { accept:"image/*", label:"Choose the screenshot for the circle", hint:"or drag & drop", onFile:function(f){ loadInto("inset", f); } });
-      slider(panel, "Circle size", 180, 460, 2, s.insetR, function(v){ return v*2 + " px"; }, function(v){ s.insetR = v; go(); });
-      segmented(panel, "Circle position", [{label:"Top left",value:"left"},{label:"Top right",value:"right"}], s.insetSide, function(v){ s.insetSide = v; go(); });
-      slider(panel, "Screenshot zoom", 100, 300, 1, Math.round(s.insetZoom*100), function(v){ return v + "%"; }, function(v){ s.insetZoom = v/100; go(); });
+    var t = s.tpl, h = t.head;
+    /* photos */
+    if (t.split){
+      dropZone(panel, { accept:"image/*", label:"Top photo", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
+      dropZone(panel, { accept:"image/*", label:"Bottom photo", hint:"or drag & drop", onFile:function(f){ loadInto("img2", f); } });
+    } else if (t.card){
+      dropZone(panel, { accept:"image/*", label:"Choose the screenshot", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
+    } else {
+      dropZone(panel, { accept:"image/*", label:"Choose the photo", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
+    }
+    if (t.inset || t.insetOpt){
+      if (t.insetOpt) segmented(panel, "Circle inset", [{label:"Off",value:"off"},{label:"On",value:"on"}], s.useInset ? "on" : "off", function(v){ s.useInset = v === "on"; rebuildControls(); render(); });
+      if (t.inset || s.useInset){
+        var def = t.inset || t.insetOpt;
+        dropZone(panel, { accept:"image/*", label:"Screenshot for the circle", hint:"or drag & drop", onFile:function(f){ loadInto("inset", f); } });
+        slider(panel, "Circle size", 120, 420, 2, s.insetR || def.r, function(v){ return v*2 + " px"; }, function(v){ s.insetR = v; go(); });
+        slider(panel, "Circle left / right", 0, 1080, 2, s.insetX != null ? s.insetX : def.cx, function(v){ return v + " px"; }, function(v){ s.insetX = v; go(); });
+        slider(panel, "Circle up / down", 0, 1350, 2, s.insetY != null ? s.insetY : def.cy, function(v){ return v + " px"; }, function(v){ s.insetY = v; go(); });
+        slider(panel, "Screenshot zoom", 100, 300, 1, Math.round(s.insetZoom*100), function(v){ return v + "%"; }, function(v){ s.insetZoom = v/100; go(); });
+      }
     }
     /* text */
-    textBox(panel, "Headline", "Write the headline — press Enter to force a line break", s.headline, function(v){ s.headline = v; go(); }, true).rows = 3;
-    if (t.fields.indexOf("sub") > -1){
-      var subLabel = t.id === "title" ? "Name / subtitle (yellow)" : t.id === "cta" ? "Handle" : "Quote / sub-line";
-      textBox(panel, subLabel, t.id === "cta" ? "@pubity" : "", s.sub, function(v){ s.sub = v; go(); });
+    if (!t.card){
+      var headLabel = t.split ? "Top caption" : "Headline";
+      textBox(panel, headLabel, t.split ? "Tired dad" : "Write the headline — Enter forces a line break", s.headline, function(v){ s.headline = v; go(); }, !t.split).rows = 3;
+      if (t.split) textBox(panel, "Bottom caption", "Also, tired dad", s.sub, function(v){ s.sub = v; go(); });
+      if (t.sub) textBox(panel, t.sub.label, t.sub.placeholder, s.sub, function(v){ s.sub = v; go(); }, !!t.sub.area);
+      if (h && h.kw) textBox(panel, h.kw === "color" ? "Keyword in blue (comma-separated)" : "Keywords in extra bold (comma-separated)", "dad, best friend", s.keywords, function(v){ s.keywords = v; go(); });
+      if (t.handle) textBox(panel, "Handle", t.handle.text, s.handle, function(v){ s.handle = v; go(); });
+      if (h){
+        slider(panel, "Text size", 40, 180, 0.5, s.size || h.size, function(v){ return v + " px" + (Math.abs(v - h.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size = v; go(); });
+        slider(panel, "Text position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
+        segmented(panel, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], s.upper ? "up" : "as", function(v){ s.upper = v === "up"; go(); });
+      } else if (t.split){
+        slider(panel, "Caption position", -300, 300, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
+      }
     }
-    if (t.fields.indexOf("body") > -1){
-      textBox(panel, "Body copy", "A few short lines of explanation", s.body, function(v){ s.body = v; go(); }, true);
-    }
-    slider(panel, "Text size", 48, 200, 1, s.size, function(v){ return v + " px"; }, function(v){ s.size = v; go(); });
-    slider(panel, "Text position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
-    slider(panel, "Letter spacing", -5, 5, 0.1, Math.round(s.tracking*100*10)/10, function(v){ return v.toFixed(1) + "%"; }, function(v){ s.tracking = v/100; go(); });
-    slider(panel, "Line spacing", 0.8, 1.3, 0.01, s.lineH, function(v){ return v.toFixed(2); }, function(v){ s.lineH = v; go(); });
-    slider(panel, "Side margin", 30, 160, 2, s.margin, function(v){ return v + " px"; }, function(v){ s.margin = v; go(); });
-    segmented(panel, "Headline style", [{label:"Condensed",value:"narrow"},{label:"Wide",value:"std"}], s.narrow ? "narrow" : "std", function(v){ s.narrow = v === "narrow"; go(); });
-    segmented(panel, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], s.upper ? "up" : "as", function(v){ s.upper = v === "up"; go(); });
     /* photo adjustments */
-    if (t.photo || t.id === "text" || t.id === "cta"){
-      slider(panel, "Photo zoom", 100, 300, 1, Math.round(s.zoom*100), function(v){ return v + "%"; }, function(v){ s.zoom = v/100; go(); });
+    if (!t.noPhoto || t.card){
+      slider(panel, t.split ? "Top photo zoom" : t.card ? "Screenshot zoom" : "Photo zoom", 100, 300, 1, Math.round(s.zoom*100), function(v){ return v + "%"; }, function(v){ s.zoom = v/100; go(); });
+      if (t.split) slider(panel, "Bottom photo zoom", 100, 300, 1, Math.round(s.zoom2*100), function(v){ return v + "%"; }, function(v){ s.zoom2 = v/100; go(); });
     }
-    if (t.photo){
-      slider(panel, "Fade to black", 0, 100, 1, Math.round(s.fade*100), function(v){ return v + "%"; }, function(v){ s.fade = v/100; go(); });
-    }
-    var toggles = [{label:"P + rule",value:"logo"},{label:"SWIPE tag",value:"swipe"},{label:"P pattern",value:"pattern"},{label:"Guides",value:"guides"}];
+    var toggles = [];
+    if (t.rule) toggles.push({label:"P + rule",value:"rule"});
+    if (t.logoAt) toggles.push({label:"P logo",value:"rule"});
+    if (!t.card && !t.split) toggles.push({label:"SWIPE tag",value:"swipe"});
+    if (!t.card && !t.split) segmented(panel, "SWIPE tag position", [{label:"Top left (Canva)",value:"left"},{label:"Top right",value:"right"}], s.swipeSide, function(v){ s.swipeSide = v; go(); });
+    toggles.push({label:"Guides",value:"guides"});
     var f = field(panel, "Extras");
     var box = el("div","seg");
     toggles.forEach(function(o){
@@ -1418,25 +1483,27 @@ function postMaker(root){
       box.appendChild(b);
     });
     f.appendChild(box);
-    var reset = button(panel, "Reset photo position", "ghost", function(){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; rebuildControls(); render(); });
+    var reset = button(panel, "Reset photo position", "ghost", function(){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; rebuildControls(); render(); });
     reset.style.marginTop = "4px";
     /* export */
     segmented(panel, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], s.format, function(v){ s.format = v; });
-    exportRow = el("div","row"); exportRow.style.marginTop = "14px";
+    var exportRow = el("div","row"); exportRow.style.marginTop = "14px";
     var saveB = el("button","btn",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>Save post');
     saveB.addEventListener("click", function(){ exportPost(false); });
     var copyB = el("button","btn ghost","Copy");
     copyB.addEventListener("click", function(){ exportPost(true); });
     exportRow.appendChild(saveB); exportRow.appendChild(copyB);
     panel.appendChild(exportRow);
-    panel.appendChild(el("div","note","Exports at " + t.w + "×" + t.h + ". On iPhone you can also press and hold the preview to save it straight to Photos."));
+    panel.appendChild(el("div","note","Exports at 1080×1350, the same as the Canva page. On iPhone you can also press and hold the preview to save it straight to Photos."));
   }
 
   function loadInto(key, file){
     if (!/^image\//.test(file.type)) { toast("That's not an image file"); return; }
     loadBlobImage(file).then(function(i){
-      s[key] = i; if (key === "img"){ s.imgName = file.name; s.zoom = 1; s.fx = 0.5; s.fy = 0.5; }
-      render(); toast(key === "img" ? "Photo added" : "Screenshot added");
+      s[key] = i;
+      if (key === "img"){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; }
+      if (key === "img2"){ s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; }
+      render(); toast("Added");
     }).catch(function(){ toast("Couldn't read that image"); });
   }
   function go(){ clearTimeout(timer); timer = setTimeout(render, 60); }
@@ -1450,20 +1517,25 @@ function postMaker(root){
     if (!blob) { toast("Export failed"); return; }
     if (copy) return copyImage(blob);
     var slug = (s.headline || "post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "post";
-    saveFile("pubity-" + s.tpl.id + "-" + slug + "." + extFor(s.format), blob);
+    saveFile(s.tpl.id + "-" + slug + "." + extFor(s.format), blob);
   }
 
-  /* drag + pinch on the preview moves/zooms the photo */
+  /* drag + pinch on the preview moves/zooms the photo (bottom photo on the split layout when you start in the lower half) */
   function wireDrag(){
-    var pts = {}, last = null, pinch = null;
+    var pts = {}, last = null, pinch = null, which = "";
     canvas.style.touchAction = "none";
-    function pos(e){ return { x:e.clientX, y:e.clientY, id:e.pointerId }; }
+    function target(e){
+      if (s.tpl.split){ var r = canvas.getBoundingClientRect(); return (e.clientY - r.top) / r.height > 0.5 && s.img2 ? "2" : ""; }
+      return "";
+    }
+    function pos(e){ return { x:e.clientX, y:e.clientY }; }
     canvas.addEventListener("pointerdown", function(e){
       if (!s.img) return;
       pts[e.pointerId] = pos(e); canvas.setPointerCapture(e.pointerId); stage.classList.add("drag");
+      which = target(e);
       var ids = Object.keys(pts);
-      if (ids.length === 2){ var a = pts[ids[0]], b = pts[ids[1]]; pinch = { d: Math.hypot(a.x-b.x, a.y-b.y), zoom: s.zoom }; }
-      else { last = pos(e); }
+      if (ids.length === 2){ var a = pts[ids[0]], b = pts[ids[1]]; pinch = { d: Math.hypot(a.x-b.x, a.y-b.y), zoom: s["zoom"+which] }; }
+      else last = pos(e);
       e.preventDefault();
     });
     canvas.addEventListener("pointermove", function(e){
@@ -1472,31 +1544,33 @@ function postMaker(root){
       var ids = Object.keys(pts);
       if (ids.length >= 2 && pinch){
         var a = pts[ids[0]], b = pts[ids[1]];
-        s.zoom = Math.min(3, Math.max(1, pinch.zoom * Math.hypot(a.x-b.x, a.y-b.y) / pinch.d));
+        s["zoom"+which] = Math.min(3, Math.max(1, pinch.zoom * Math.hypot(a.x-b.x, a.y-b.y) / pinch.d));
         go(); return;
       }
       if (!last) return;
-      var scale = s.tpl.w / canvas.getBoundingClientRect().width;
+      var scale = 1080 / canvas.getBoundingClientRect().width;
       var dx = (e.clientX - last.x) * scale, dy = (e.clientY - last.y) * scale;
       last = pos(e);
-      var W = s.tpl.w, H = s.tpl.h, base = Math.max(W/s.img.width, H/s.img.height) * s.zoom;
-      var dw = s.img.width*base - W, dh = s.img.height*base - H;
-      if (dw > 1) s.fx = Math.min(1, Math.max(0, s.fx - dx/dw));
-      if (dh > 1) s.fy = Math.min(1, Math.max(0, s.fy - dy/dh));
+      var im = which ? s.img2 : s.img, areaH = s.tpl.split ? 675 : (s.tpl.card ? s.tpl.card.h : (s.tpl.solidBelow || 1350)), areaW = s.tpl.card ? s.tpl.card.w : 1080;
+      var base = Math.max(areaW/im.width, areaH/im.height) * s["zoom"+which];
+      var dw = im.width*base - areaW, dh = im.height*base - areaH;
+      if (dw > 1) s["fx"+which] = Math.min(1, Math.max(0, s["fx"+which] - dx/dw));
+      if (dh > 1) s["fy"+which] = Math.min(1, Math.max(0, s["fy"+which] - dy/dh));
       render();
     });
-    function up(e){ delete pts[e.pointerId]; if (!Object.keys(pts).length){ last = null; pinch = null; stage.classList.remove("drag"); } else { last = null; pinch = null; } }
+    function up(e){ delete pts[e.pointerId]; last = null; pinch = null; if (!Object.keys(pts).length) stage.classList.remove("drag"); }
     canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
     canvas.addEventListener("wheel", function(e){
       if (!s.img) return; e.preventDefault();
-      s.zoom = Math.min(3, Math.max(1, s.zoom * (e.deltaY < 0 ? 1.05 : 0.95))); go();
+      var w = target(e);
+      s["zoom"+w] = Math.min(3, Math.max(1, s["zoom"+w] * (e.deltaY < 0 ? 1.05 : 0.95))); go();
     }, { passive:false });
   }
 }
 
 TOOLS.unshift({ id:"postmaker", cat:"Image", icon:"post", name:"Post maker",
-  desc:"Pubity templates — drop a photo, write the headline, export",
-  lead:"Every daily-post layout in one place. Everything renders on your device at full size.",
+  desc:"Pubity + @dads Canva layouts — drop a photo, write the headline, export",
+  lead:"The daily-post layouts from the Canva brand template, rebuilt pixel for pixel. Everything renders on your device at full size.",
   build:function(root){ postMaker(root); }
 });
 
