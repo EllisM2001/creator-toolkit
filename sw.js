@@ -1,5 +1,7 @@
-var CACHE = "toolkit-v3";
-var ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png"];
+var CACHE = "toolkit-v4";
+var ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png", "pubity-p.png",
+  "fonts/BarlowSemiCondensed-ExtraBold.woff2", "fonts/BarlowCondensed-ExtraBold.woff2",
+  "fonts/GeneralSans-Medium.woff2", "fonts/GeneralSans-MediumItalic.woff2", "fonts/GeneralSans-Semibold.woff2", "fonts/GeneralSans-Bold.woff2"];
 
 self.addEventListener("install", function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(ASSETS); }).then(function(){ return self.skipWaiting(); }));
