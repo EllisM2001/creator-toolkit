@@ -47,7 +47,21 @@ and badges, at 1080×1350.
 | @dads · Impact + keyword / Poppins black band / Two photos | 1 / 6 / 4 |
 
 Drop in the photo, write the headline, and adjust size, position, keywords, photo zoom
-and the circle inset. Layouts live in the `PM_TEMPLATES` array in `index.html`.
+and the circle inset.
+
+### Designing your own templates
+
+Press **Design a template** in the Post maker. It copies the current template so you can
+lay it out exactly how it should look: tap an element to select it, drag it on the preview,
+and tune font, size, line height, spacing, alignment, box and colour below. Add text boxes,
+fades, the P + rule, the P logo, SWIPE, pills, handles, circle insets, or an **overlay PNG**
+(a Canva page exported with the photo and text removed, transparent background) for a
+pixel-exact copy. Elements can be marked as always on or as a toggle in the post tool.
+
+**Save template** keeps it on your device. **Save + download file** also gives you a
+`template-<id>.json`. To share it with everyone, add it to `templates/custom.json` in the
+repo (see `templates/README.md`); the app loads that file on start. Built-in layouts live in
+`PM_BUILTIN` in `index.html`.
 
 **Font licences.** Vanguard CF and Impact LT Std are commercial faces pulled from the
 brand's Canva kit. Check that the licence covers web embedding before the site is public,

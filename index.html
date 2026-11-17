@@ -180,6 +180,10 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .pm-stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px;text-align:center;margin-top:4px}
 .pm-stage canvas{max-width:100%;max-height:64vh;width:auto;height:auto;border-radius:8px;display:block;margin:0 auto;cursor:grab;touch-action:none}
 .pm-stage.drag canvas{cursor:grabbing}
+.pm-els{display:flex;flex-wrap:wrap;gap:6px}
+.pm-el{padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--dim);font-size:12.5px}
+.pm-el[aria-pressed="true"]{background:var(--text);color:#000;border-color:var(--text);font-weight:600}
+.pm-sep{margin:18px 0 6px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--accent)}
 .pm-hint{color:var(--dim2);font-size:12px;margin-top:8px;text-align:center}
 @media (min-width:700px){ .grid{gap:12px} h1{font-size:23px} }
 </style>
@@ -1067,20 +1071,25 @@ TOOLS.push({ id:"safezones", cat:"Extras", icon:"zones", name:"Safe zones",
     viewCleanups.push(function(){ if (vid) vid.pause(); if (url) URL.revokeObjectURL(url); });
   }});
 
-/* ========== Post maker — layouts copied from the "Pubity Headline" Canva brand template ========== */
+/* ========== Post maker — templates + template designer ========== */
 var PM_LOGO = null;
 var PM_FONTS = {
-  vanguard: { css:'"Vanguard CF"', weight:700, cap:0.767 },
-  poppins:  { css:'"Poppins"',     weight:700, cap:0.705 },
-  impact:   { css:'"Impact LT Std"', weight:400, cap:0.714 },
-  general:  { css:'"General Sans"', weight:700, cap:0.70 },
-  arimo:    { css:'"Arimo"',       weight:400, cap:0.716 }
+  vanguard: { label:"Vanguard CF Bold (Pubity headline)", css:'"Vanguard CF"', weight:700, cap:0.767 },
+  poppins:  { label:"Poppins Bold", css:'"Poppins"', weight:700, cap:0.705 },
+  poppinsx: { label:"Poppins ExtraBold", css:'"Poppins"', weight:800, cap:0.705 },
+  impact:   { label:"Impact LT Std", css:'"Impact LT Std"', weight:400, cap:0.714 },
+  general:  { label:"General Sans Bold", css:'"General Sans"', weight:700, cap:0.70 },
+  generalm: { label:"General Sans Medium", css:'"General Sans"', weight:500, cap:0.70 },
+  arimo:    { label:"Arimo", css:'"Arimo"', weight:400, cap:0.716 }
 };
-/* alpha curves sampled from the Canva gradient assets (fraction of asset height -> alpha) */
-var PM_CURVE_BLACK = [[0,0],[.081,.063],[.162,.25],[.243,.49],[.324,.725],[.405,.88],[.486,.96],[.568,.99],[.649,.996],[.73,1],[1,1]];
-var PM_CURVE_SOFT  = [[0,0],[.03,.004],[.11,.031],[.19,.086],[.27,.169],[.351,.275],[.432,.404],[.514,.545],[.595,.678],[.676,.796],[.757,.882],[.838,.949],[.919,.984],[1,1]];
-var PM_CURVE_STRIP = [[0,0],[.125,.016],[.25,.125],[.375,.235],[.5,.408],[.625,.553],[.75,.66],[.875,.765],[1,.87]];
+/* alpha curves sampled from the Canva gradient assets (fraction of height -> alpha) */
+var PM_CURVES = {
+  black: [[0,0],[.081,.063],[.162,.25],[.243,.49],[.324,.725],[.405,.88],[.486,.96],[.568,.99],[.649,.996],[.73,1],[1,1]],
+  soft:  [[0,0],[.03,.004],[.11,.031],[.19,.086],[.27,.169],[.351,.275],[.432,.404],[.514,.545],[.595,.678],[.676,.796],[.757,.882],[.838,.949],[.919,.984],[1,1]],
+  strip: [[0,0],[.125,.016],[.25,.125],[.375,.235],[.5,.408],[.625,.553],[.75,.66],[.875,.765],[1,.87]]
+};
 var PM_BLUE = "0,11,255", PM_BLACK = "0,0,0", PM_YELLOW = "rgb(255,246,0)";
+var PM_STORE = "pm_custom_templates_v1";
 
 function pmLoadAssets(){
   var faces = ['700 100px "Vanguard CF"','700 100px "Poppins"','800 100px "Poppins"','400 100px "Impact LT Std"','700 40px "General Sans"','500 40px "General Sans"','400 40px "Arimo"'];
@@ -1092,70 +1101,113 @@ function pmLoadAssets(){
   return Promise.all(ps);
 }
 
-/* Every entry mirrors one page of the Canva file (page numbers in `page`). Coordinates are in 1080x1350 design pixels. */
-var PM_TEMPLATES = [
-  { id:"pubity", brand:"Pubity", name:"Headline", page:"pages 13–16, 18, 20 + most of the file", desc:"The daily post. Centred Vanguard headline over the black fade, P and rule above it.",
-    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704}],
-    head:{font:"vanguard",size:107,lh:0.956,ls:0.008,align:"center",x:21,w:1038,bottom:1293,upper:true,shadow:[0.6,4,30]},
-    rule:true, swipe:true, insetOpt:{cx:806,cy:268,r:268} },
-  { id:"pubity-inset", brand:"Pubity", name:"Headline + circle", page:"pages 13, 20 and 85 more", desc:"Same post with the round screenshot inset.",
-    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704}],
-    head:{font:"vanguard",size:107,lh:0.956,ls:0.008,align:"center",x:21,w:1038,bottom:1293,upper:true,shadow:[0.6,4,30]},
-    rule:true, swipe:true, inset:{cx:806,cy:268,r:268} },
-  { id:"pubity-quote", brand:"Pubity", name:"Quote + name", page:"page 106", desc:"Quote headline with the yellow attribution underneath.",
-    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:815,h:704}],
-    head:{font:"vanguard",size:95,lh:0.95,ls:0.008,align:"center",x:29,w:1022,top:851,upper:true,shadow:[0.6,4,30]},
-    sub:{font:"general",size:39,lh:54,align:"left",x:60,w:960,top:1239,color:PM_YELLOW,upper:true,label:"Name / attribution",placeholder:"JAMES GUNN"},
-    rule:true, swipe:false },
-  { id:"pubity-intro", brand:"Pubity", name:"Intro copy + headline", page:"page 80", desc:"Paragraph of context above the headline.",
-    layers:[{curve:"black",color:PM_BLACK,y:680,h:704},{curve:"black",color:PM_BLACK,y:714,h:704}],
-    head:{font:"vanguard",size:128,lh:0.953,ls:0.008,align:"center",x:25,w:1030,top:926,upper:true,shadow:[0.6,4,30]},
-    sub:{font:"arimo",size:25,lh:35,align:"center",x:117,w:846,top:608,color:"#fff",label:"Intro copy",placeholder:"A few lines of context go here, centred above the headline.",area:true},
-    rule:false, swipe:false },
-  { id:"pubity-impact", brand:"Pubity", name:"Impact, left", page:"page 53", desc:"Older style — Impact headline set left, circle inset, P top-left.",
-    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:797,h:704},{curve:"black",color:PM_BLACK,y:813,h:704}],
-    head:{font:"impact",size:109,lh:0.95,ls:0.008,align:"left",x:33,w:979,top:969,upper:true,shadow:[0.6,4,30]},
-    logoAt:{x:33,y:891,h:40}, inset:{cx:736,cy:583,r:288}, rule:false, swipe:false },
-  { id:"pubity-card", brand:"Pubity", name:"Screenshot card", page:"page 17", desc:"White page with a rounded screenshot in the middle.",
-    bg:"rgb(253,253,253)", card:{x:273,y:555,w:598,h:412,r:28}, noPhoto:true, rule:false, swipe:false },
-  { id:"dads-left", brand:"@dads", name:"Left + TRENDING", page:"pages 2–3", desc:"Poppins headline set left, blue TRENDING pill, @DADS bottom right, blue fade.",
-    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
-    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"left",x:37,w:961,top:932,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
-    pill:{text:"TRENDING",x:37,y:890}, handle:{text:"@DADS",x:1046,y:1288,align:"right",size:36}, swipe:false },
-  { id:"dads-centre", brand:"@dads", name:"Centred + TRENDING", page:"page 5", desc:"Centred Poppins headline with the TRENDING pill above it.",
-    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
-    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:60,w:961,top:938,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
-    pill:{text:"TRENDING",cx:540,y:893}, handle:{text:"@DADS",x:1046,y:1288,align:"right",size:36}, swipe:false },
-  { id:"dads-pill", brand:"@dads", name:"Centred + @DADS pill", page:"page 7", desc:"Centred headline with the @DADS pill above it.",
-    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
-    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:60,w:961,top:948,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
-    pill:{text:"@DADS",cx:540,y:893}, swipe:false },
-  { id:"dads-black", brand:"@dads", name:"Centred, black fade", page:"pages 8–9", desc:"Centred headline on the black fade, @DADS centred underneath.",
-    layers:[{curve:"soft",color:PM_BLACK,y:332,h:1425}],
-    head:{font:"poppins",size:85.3,lh:89,ls:0,align:"center",x:78,w:961,top:883,upper:true,shadow:[0.6,3.2,24],kw:"bold"},
-    handle:{text:"@DADS",cx:540,y:1304,align:"center",size:42}, swipe:false },
-  { id:"dads-vanguard-left", brand:"@dads", name:"Vanguard, left", page:"pages 10–11", desc:"Vanguard headline set left with the TRENDING pill.",
-    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
-    head:{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"left",x:42,w:996,top:963,upper:true,shadow:[0.6,4,30]},
-    pill:{text:"TRENDING",x:42,y:917}, swipe:false },
-  { id:"dads-vanguard-centre", brand:"@dads", name:"Vanguard, centred", page:"page 12", desc:"Centred Vanguard headline, @DADS underneath.",
-    layers:[{curve:"soft",color:PM_BLUE,y:332,h:1425}],
-    head:{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"center",x:21,w:1038,top:931,upper:true,shadow:[0.6,4,30]},
-    handle:{text:"@DADS",cx:540,y:1307,align:"center",size:36}, swipe:false },
-  { id:"dads-impact", brand:"@dads", name:"Impact + keyword", page:"page 1", desc:"Impact headline with a blue keyword and a one-line sub-head.",
-    layers:[{curve:"black",color:PM_BLACK,y:781,h:704},{curve:"black",color:PM_BLACK,y:748,h:704},{curve:"soft",color:PM_BLACK,y:61,h:1425}],
-    head:{font:"impact",size:86,lh:0.956,ls:0.008,align:"center",x:176,w:702,top:852,upper:true,shadow:[0.6,4,30],kw:"color",kwColor:"rgb(0,10,255)"},
-    sub:{font:"vanguard",size:34.7,lh:48,align:"center",x:215,w:651,top:1265,color:"#fff",label:"Sub-head",placeholder:"This is what fatherhood is all about"},
-    swipe:false },
-  { id:"dads-wide", brand:"@dads", name:"Poppins, black band", page:"page 6", desc:"Photo on top, solid black band with a five-line Poppins headline.",
-    layers:[{curve:"strip",color:"7,0,7",y:749,h:158}], solidBelow:907,
-    head:{font:"poppins",size:69.7,lh:73,ls:0,align:"center",x:70,w:950,top:900,upper:true,shadow:[0.6,3,24],kw:"bold"},
-    pill:{text:"@DADS",cx:540,y:846}, swipe:false },
-  { id:"dads-split", brand:"@dads", name:"Two photos + captions", page:"page 4", desc:"Top and bottom photo, a caption on each.",
-    split:true, cap:{font:"poppins",size:42.7,lh:44.5,align:"center",x:60,w:960,upper:true,shadow:[0.6,3,24]},
-    swipe:false }
+/* ---- element helpers used by both the built-in list and the designer ---- */
+function pmText(key, label, o){
+  return Object.assign({ type:"text", key:key, label:label, font:"vanguard", size:107, lh:0.956, ls:0.008, align:"center", x:21, y:1293, w:1038, anchor:"bottom", color:"#fff", upper:true, shadow:[0.6,4,30], kw:"", kwColor:"rgb(0,10,255)", placeholder:"", area:true }, o || {});
+}
+var PM_HEAD = { font:"vanguard", size:107, lh:0.956, ls:0.008, align:"center", x:21, y:1293, w:1038, anchor:"bottom", shadow:[0.6,4,30] };
+var PM_POP = { font:"poppins", size:85.3, lh:89, ls:0, color:"rgb(253,253,253)", shadow:[0.6,3.2,24], kw:"bold", anchor:"top" };
+function fadeBlack2(){ return [{type:"fade",curve:"black",color:PM_BLACK,y:781,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:748,h:704}]; }
+function fadeSoft(color){ return [{type:"fade",curve:"soft",color:color,y:332,h:1425}]; }
+
+/* Every built-in mirrors one page of the "Pubity Headline" Canva file (see `page`). 1080x1350 design pixels. Elements draw in order. */
+var PM_BUILTIN = [
+  { id:"pubity", brand:"Pubity", name:"Headline", page:"Canva pages 13–16, 18, 20 + most of the file",
+    elements: fadeBlack2().concat([
+      {type:"circle",cx:806,cy:268,r:268,optional:true,on:false,label:"Circle inset"},
+      {type:"rule",label:"P + rule"},
+      pmText("headline","Headline",PM_HEAD),
+      {type:"swipe",x:120,y:59,optional:true,on:true,label:"SWIPE tag"} ]) },
+  { id:"pubity-quote", brand:"Pubity", name:"Quote + name", page:"Canva page 106",
+    elements: [{type:"fade",curve:"black",color:PM_BLACK,y:781,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:815,h:704},
+      {type:"rule",label:"P + rule"},
+      pmText("headline","Headline",Object.assign({},PM_HEAD,{size:95,lh:0.95,x:29,w:1022,y:851,anchor:"top"})),
+      pmText("sub","Name / attribution",{font:"general",size:39,lh:54,ls:0,align:"left",x:60,y:1239,w:960,anchor:"top",color:PM_YELLOW,upper:true,placeholder:"JAMES GUNN",area:false,shadow:[0.5,2,14]}),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"pubity-intro", brand:"Pubity", name:"Intro copy + headline", page:"Canva page 80",
+    elements: [{type:"fade",curve:"black",color:PM_BLACK,y:680,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:714,h:704},
+      pmText("sub","Intro copy",{font:"arimo",size:25,lh:35,ls:0,align:"center",x:117,y:608,w:846,anchor:"top",color:"#fff",upper:false,placeholder:"A few lines of context go here, centred above the headline.",shadow:[0.5,2,14]}),
+      pmText("headline","Headline",Object.assign({},PM_HEAD,{size:128,lh:0.953,x:25,w:1030,y:926,anchor:"top"})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"pubity-impact", brand:"Pubity", name:"Impact, left", page:"Canva page 53",
+    elements: [{type:"fade",curve:"black",color:PM_BLACK,y:781,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:797,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:813,h:704},
+      {type:"circle",cx:736,cy:583,r:288,optional:true,on:true,label:"Circle inset"},
+      {type:"logo",x:52,y:911,h:40,label:"P logo"},
+      pmText("headline","Headline",{font:"impact",size:109,lh:0.95,ls:0.008,align:"left",x:33,y:969,w:979,anchor:"top"}),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"pubity-card", brand:"Pubity", name:"Screenshot card", page:"Canva page 17", bg:"rgb(253,253,253)", noPhoto:true,
+    elements: [{type:"card",x:273,y:555,w:598,h:412,r:28,label:"Screenshot card"}] },
+  { id:"dads-left", brand:"@dads", name:"Left + TRENDING", page:"Canva pages 2–3",
+    elements: fadeSoft(PM_BLUE).concat([
+      {type:"pill",text:"TRENDING",x:37,y:890,label:"Pill"},
+      pmText("headline","Headline",Object.assign({},PM_POP,{align:"left",x:37,y:932,w:961})),
+      {type:"handle",text:"@DADS",x:1046,y:1288,size:36,align:"right",label:"Handle"},
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-centre", brand:"@dads", name:"Centred + TRENDING", page:"Canva page 5",
+    elements: fadeSoft(PM_BLUE).concat([
+      {type:"pill",text:"TRENDING",x:468,y:893,label:"Pill"},
+      pmText("headline","Headline",Object.assign({},PM_POP,{align:"center",x:60,y:938,w:961})),
+      {type:"handle",text:"@DADS",x:1046,y:1288,size:36,align:"right",label:"Handle"},
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-pill", brand:"@dads", name:"Centred + @DADS pill", page:"Canva page 7",
+    elements: fadeSoft(PM_BLUE).concat([
+      {type:"pill",text:"@DADS",x:468,y:893,label:"Pill"},
+      pmText("headline","Headline",Object.assign({},PM_POP,{align:"center",x:60,y:948,w:961})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-black", brand:"@dads", name:"Centred, black fade", page:"Canva pages 8–9",
+    elements: fadeSoft(PM_BLACK).concat([
+      pmText("headline","Headline",Object.assign({},PM_POP,{align:"center",x:78,y:883,w:961})),
+      {type:"handle",text:"@DADS",x:540,y:1304,size:42,align:"center",label:"Handle"},
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-vanguard-left", brand:"@dads", name:"Vanguard, left", page:"Canva pages 10–11",
+    elements: fadeSoft(PM_BLUE).concat([
+      {type:"pill",text:"TRENDING",x:42,y:917,label:"Pill"},
+      pmText("headline","Headline",{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"left",x:42,y:963,w:996,anchor:"top"}),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-vanguard-centre", brand:"@dads", name:"Vanguard, centred", page:"Canva page 12",
+    elements: fadeSoft(PM_BLUE).concat([
+      pmText("headline","Headline",{font:"vanguard",size:111.4,lh:0.951,ls:0.008,align:"center",x:21,y:931,w:1038,anchor:"top"}),
+      {type:"handle",text:"@DADS",x:540,y:1307,size:36,align:"center",label:"Handle"},
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-impact", brand:"@dads", name:"Impact + keyword", page:"Canva page 1",
+    elements: fadeBlack2().concat([{type:"fade",curve:"soft",color:PM_BLACK,y:61,h:1425},
+      pmText("headline","Headline",{font:"impact",size:86,lh:0.956,ls:0.008,align:"center",x:176,y:852,w:702,anchor:"top",kw:"color",kwColor:"rgb(0,10,255)"}),
+      pmText("sub","Sub-head",{font:"vanguard",size:34.7,lh:48,ls:0,align:"center",x:215,y:1265,w:651,anchor:"top",color:"#fff",upper:false,placeholder:"This is what fatherhood is all about",area:false,shadow:[0.5,2,14]}),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
+  { id:"dads-wide", brand:"@dads", name:"Poppins, black band", page:"Canva page 6", photoH:907,
+    elements: [{type:"fade",curve:"strip",color:"7,0,7",y:749,h:158},
+      {type:"pill",text:"@DADS",x:473,y:846,label:"Pill"},
+      pmText("headline","Headline",Object.assign({},PM_POP,{size:69.7,lh:73,align:"center",x:70,y:900,w:950})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"dads-split", brand:"@dads", name:"Two photos + captions", page:"Canva page 4", split:true,
+    elements: [
+      pmText("headline","Top caption",Object.assign({},PM_POP,{size:42.7,lh:44.5,align:"center",x:60,y:576,w:960,placeholder:"Tired dad",area:false,kw:""})),
+      pmText("sub","Bottom caption",Object.assign({},PM_POP,{size:42.7,lh:44.5,align:"center",x:60,y:1277,w:960,placeholder:"Also, tired dad",area:false,kw:""})) ] }
 ];
 
+/* ---- custom templates: localStorage + templates/custom.json in the repo ---- */
+var PM_CUSTOM = [];
+function pmLoadCustom(){
+  try { PM_CUSTOM = JSON.parse(localStorage.getItem(PM_STORE) || "[]"); } catch(e){ PM_CUSTOM = []; }
+  return fetch("templates/custom.json", { cache:"no-store" }).then(function(r){ return r.ok ? r.json() : []; }).then(function(list){
+    (list || []).forEach(function(t){ if (!PM_CUSTOM.some(function(c){ return c.id === t.id; })) { t.shared = true; PM_CUSTOM.push(t); } });
+  }).catch(function(){});
+}
+function pmSaveCustom(tpl){
+  var mine = PM_CUSTOM.filter(function(t){ return !t.shared; });
+  var i = mine.findIndex(function(t){ return t.id === tpl.id; });
+  if (i > -1) mine[i] = tpl; else mine.push(tpl);
+  try { localStorage.setItem(PM_STORE, JSON.stringify(mine)); } catch(e){ toast("Couldn't store the template on this device (storage full?)"); }
+  PM_CUSTOM = mine.concat(PM_CUSTOM.filter(function(t){ return t.shared && !mine.some(function(m){ return m.id === t.id; }); }));
+}
+function pmDeleteCustom(id){
+  var mine = PM_CUSTOM.filter(function(t){ return !t.shared && t.id !== id; });
+  try { localStorage.setItem(PM_STORE, JSON.stringify(mine)); } catch(e){}
+  PM_CUSTOM = PM_CUSTOM.filter(function(t){ return t.id !== id; });
+}
+function pmAllTemplates(){ return PM_CUSTOM.concat(PM_BUILTIN); }
+
+/* ---- drawing ---- */
 function pmPlaceholder(w,h){
   var c = newCanvas(w,h), x = c.getContext("2d");
   var g = x.createLinearGradient(0,0,w,h);
@@ -1175,12 +1227,11 @@ function pmFont(ctx, key, size, weight, ls){
   ctx.font = (weight || f.weight) + " " + size + "px " + f.css;
   if ("letterSpacing" in ctx) ctx.letterSpacing = ((ls||0)*size) + "px";
 }
-function pmCurve(ctx, W, H, layer){
-  var curve = layer.curve === "soft" ? PM_CURVE_SOFT : layer.curve === "strip" ? PM_CURVE_STRIP : PM_CURVE_BLACK;
-  var y0 = layer.y, y1 = layer.y + layer.h;
-  if (y0 >= H) return;
+function pmFade(ctx, W, H, L){
+  var curve = PM_CURVES[L.curve] || PM_CURVES.black, y0 = L.y, y1 = L.y + L.h;
+  if (y0 >= H || y1 <= 0) return;
   var g = ctx.createLinearGradient(0, y0, 0, y1);
-  curve.forEach(function(p){ g.addColorStop(p[0], "rgba(" + layer.color + "," + p[1] + ")"); });
+  curve.forEach(function(p){ g.addColorStop(p[0], "rgba(" + L.color + "," + p[1] + ")"); });
   ctx.fillStyle = g; ctx.fillRect(0, Math.max(0,y0), W, Math.min(H,y1) - Math.max(0,y0));
 }
 function pmPhoto(ctx, img, x, y, w, h, s){
@@ -1189,21 +1240,6 @@ function pmPhoto(ctx, img, x, y, w, h, s){
   ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
   ctx.drawImage(img, x + (w-dw)*(s.fx==null?0.5:s.fx), y + (h-dh)*(s.fy==null?0.5:s.fy), dw, dh);
   ctx.restore();
-}
-function pmWrapWords(ctx, words, maxW){
-  var lines = [], line = [];
-  words.forEach(function(w){
-    if (w.br){ lines.push(line); line = []; return; }
-    var test = line.concat([w]);
-    if (!line.length || pmLineWidth(ctx, test) <= maxW) line = test; else { lines.push(line); line = [w]; }
-  });
-  lines.push(line);
-  return lines;
-}
-function pmLineWidth(ctx, words){
-  var s = "";
-  words.forEach(function(w,i){ s += (i ? " " : "") + w.t; });
-  return ctx.measureText(s).width;
 }
 function pmTokens(text, upper, keywords){
   var kws = (keywords||"").split(/[,\n]/).map(function(k){ return k.trim().toLowerCase(); }).filter(Boolean);
@@ -1217,41 +1253,54 @@ function pmTokens(text, upper, keywords){
   });
   return out;
 }
-/* Draws (or measures) a text block. o: text, font, size, lh (multiplier if <3, else px), ls, align, x, w, top|bottom, color, shadow [alpha,dy,blur], upper, kw ("bold"|"color"), kwColor, keywords, maxLines */
-function pmBlock(ctx, o, measureOnly){
+function pmLineWidth(ctx, words){ var s = ""; words.forEach(function(w,i){ s += (i ? " " : "") + w.t; }); return ctx.measureText(s).width; }
+function pmWrapWords(ctx, words, maxW){
+  var lines = [], line = [];
+  words.forEach(function(w){
+    if (w.br){ lines.push(line); line = []; return; }
+    var test = line.concat([w]);
+    if (!line.length || pmLineWidth(ctx, test) <= maxW) line = test; else { lines.push(line); line = [w]; }
+  });
+  lines.push(line);
+  return lines;
+}
+/* Draws (or measures) a text element. e: text element spec; text/keywords/size override/offset come from state. */
+function pmBlock(ctx, e, text, opts, measureOnly){
+  opts = opts || {};
   ctx.save();
-  var f = PM_FONTS[o.font] || PM_FONTS.vanguard;
-  var size = o.size, tokens = pmTokens(o.text, o.upper, o.keywords), lines, tries = 0;
+  var f = PM_FONTS[e.font] || PM_FONTS.vanguard;
+  var size = opts.size || e.size, upper = opts.upper == null ? e.upper : opts.upper;
+  var tokens = pmTokens(text, upper, opts.keywords), lines, tries = 0;
   for (;;){
-    pmFont(ctx, o.font, size, o.weight, o.ls);
-    lines = pmWrapWords(ctx, tokens, o.w);
-    var tooWide = lines.some(function(l){ return pmLineWidth(ctx, l) > o.w + 0.5; });
-    if ((lines.length > (o.maxLines || 99) || tooWide) && size > 24 && tries++ < 40) { size = Math.round((size - 1) * 10) / 10; continue; }
+    pmFont(ctx, e.font, size, null, e.ls);
+    lines = pmWrapWords(ctx, tokens, e.w);
+    var tooWide = lines.some(function(l){ return pmLineWidth(ctx, l) > e.w + 0.5; });
+    if ((lines.length > 8 || tooWide) && size > 18 && tries++ < 60) { size = Math.round((size - 1) * 10) / 10; continue; }
     break;
   }
-  var lh = o.lh < 3 ? size * o.lh : o.lh * (size / o.size);
+  var lh = e.lh < 3 ? size * e.lh : e.lh * (size / e.size);
   var capH = size * f.cap, blockH = lines.length * lh;
-  var top = o.top != null ? o.top : o.middle != null ? o.middle - blockH/2 : o.bottom - blockH;
+  var top = (e.anchor === "bottom" ? e.y - blockH : e.anchor === "middle" ? e.y - blockH/2 : e.y) + (opts.offset || 0);
   var capTop = top + (lh - capH)/2;
   if (!measureOnly){
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
-    if (o.shadow){ ctx.shadowColor = "rgba(0,0,0," + o.shadow[0] + ")"; ctx.shadowOffsetY = o.shadow[1]; ctx.shadowBlur = o.shadow[2]; }
+    if (e.shadow && e.shadow[0] > 0){ ctx.shadowColor = "rgba(0,0,0," + e.shadow[0] + ")"; ctx.shadowOffsetY = e.shadow[1]; ctx.shadowBlur = e.shadow[2]; }
     lines.forEach(function(words, i){
       var baseline = top + i*lh + (lh + capH)/2;
       var lineW = pmLineWidth(ctx, words);
-      var x = o.align === "center" ? o.x + (o.w - lineW)/2 : o.align === "right" ? o.x + o.w - lineW : o.x;
+      var x = e.align === "center" ? e.x + (e.w - lineW)/2 : e.align === "right" ? e.x + e.w - lineW : e.x;
       var spaceW = ctx.measureText(" ").width;
       words.forEach(function(w, j){
-        var kw = w.kw && o.kw;
-        if (kw === "bold") pmFont(ctx, o.font, size, 800, o.ls); else pmFont(ctx, o.font, size, o.weight, o.ls);
-        ctx.fillStyle = kw === "color" ? (o.kwColor || PM_YELLOW) : (o.color || "#fff");
+        var kw = w.kw && e.kw;
+        if (kw === "bold") pmFont(ctx, e.font, size, 800, e.ls); else pmFont(ctx, e.font, size, null, e.ls);
+        ctx.fillStyle = kw === "color" ? (e.kwColor || PM_YELLOW) : (e.color || "#fff");
         ctx.fillText(w.t, x, baseline);
         x += ctx.measureText(w.t).width + (j < words.length-1 ? spaceW : 0);
       });
     });
   }
   ctx.restore();
-  return { top:top, bottom:top+blockH, height:blockH, lines:lines.length, size:size, capTop:capTop, lh:lh };
+  return { x:e.x, w:e.w, top:top, bottom:top+blockH, height:blockH, lines:lines.length, size:size, capTop:capTop, lh:lh };
 }
 function pmLogo(ctx, cx, cy, h){
   if (!PM_LOGO){ ctx.save(); pmFont(ctx,"vanguard",h); ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("P",cx,cy); ctx.restore(); return; }
@@ -1265,27 +1314,24 @@ function pmRule(ctx, W, y){
   pmLogo(ctx, W/2, y - 1, 38);
   ctx.restore();
 }
-function pmSwipe(ctx, side){
-  /* measured from the Canva pages: arrow tip x120, bar to x220, text x232-332, centre y59 */
-  var x0 = side === "right" ? 1080 - 37 - 212 : 120, cy = 59;
+function pmSwipe(ctx, x0, cy){
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.moveTo(x0, cy); ctx.lineTo(x0 + 14, cy - 9); ctx.lineTo(x0 + 100, cy - 9);
-  ctx.lineTo(x0 + 100, cy + 9); ctx.lineTo(x0 + 14, cy + 9); ctx.closePath(); ctx.fill();
+  ctx.moveTo(x0, cy); ctx.lineTo(x0 + 14, cy - 9); ctx.lineTo(x0 + 100, cy - 9); ctx.lineTo(x0 + 100, cy + 9); ctx.lineTo(x0 + 14, cy + 9); ctx.closePath(); ctx.fill();
   pmFont(ctx, "poppins", 27, 700, 0.01);
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   ctx.fillText("SWIPE", x0 + 112, cy + 27*0.705/2);
   ctx.restore();
 }
-function pmPill(ctx, p){
-  var w = 143, h = 48, x = p.cx != null ? p.cx - w/2 : p.x, y = p.y;
+function pmPill(ctx, p, text){
+  var w = p.w || 143, h = p.h || 48;
   ctx.save();
-  pmRoundRect(ctx, x, y, w, h, 24); ctx.fillStyle = "rgb(0,11,255)"; ctx.fill();
-  pmFont(ctx, "vanguard", 33, 700, 0.01);
+  pmRoundRect(ctx, p.x, p.y, w, h, h/2); ctx.fillStyle = p.color || "rgb(0,11,255)"; ctx.fill();
+  pmFont(ctx, "vanguard", p.size || 33, 700, 0.01);
   ctx.fillStyle = "rgb(247,247,247)"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-  ctx.fillText(p.text, x + w/2, y + h/2 + 33*0.767/2);
+  ctx.fillText(text, p.x + w/2, p.y + h/2 + (p.size || 33)*0.767/2);
   ctx.restore();
 }
 function pmHandle(ctx, hd, text){
@@ -1293,24 +1339,32 @@ function pmHandle(ctx, hd, text){
   pmFont(ctx, "vanguard", hd.size, 700, 0.008);
   ctx.fillStyle = "rgb(253,253,253)"; ctx.textAlign = hd.align === "center" ? "center" : hd.align === "right" ? "right" : "left"; ctx.textBaseline = "alphabetic";
   ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
-  ctx.fillText(text, hd.cx != null ? hd.cx : hd.x, hd.y + hd.size*0.767/2);
+  ctx.fillText(text, hd.x, hd.y + hd.size*0.767/2);
   ctx.restore();
 }
-function pmInset(ctx, s, def){
-  var r = s.insetR || def.r, cx = s.insetX != null ? s.insetX : def.cx, cy = s.insetY != null ? s.insetY : def.cy;
+function pmCircle(ctx, e, s){
+  var r = s.insetR || e.r, cx = s.insetX != null ? s.insetX : e.cx, cy = s.insetY != null ? s.insetY : e.cy;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
   if (s.inset){
     var sc = Math.max(2*r/s.inset.width, 2*r/s.inset.height) * (s.insetZoom||1);
     var dw = s.inset.width*sc, dh = s.inset.height*sc;
-    ctx.drawImage(s.inset, cx - dw/2 + (dw-2*r)*(0.5-(s.insetFx==null?0.5:s.insetFx)), cy - dh/2 + (dh-2*r)*(0.5-(s.insetFy==null?0.5:s.insetFy)), dw, dh);
+    ctx.drawImage(s.inset, cx - dw/2, cy - dh/2, dw, dh);
   } else {
     ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
     ctx.fillStyle = "rgba(255,255,255,.8)"; pmFont(ctx,"general",30,600); ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.fillText("Drop the screenshot", cx, cy - 18); ctx.fillText("for the circle", cx, cy + 20);
   }
   ctx.restore();
-  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 5, 0, Math.PI*2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 5, 0, Math.PI*2); ctx.strokeStyle = "#fff"; ctx.lineWidth = e.ring || 10; ctx.stroke(); ctx.restore();
+}
+function pmCard(ctx, c, s){
+  ctx.save(); ctx.shadowColor = "rgba(0,0,0,.18)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+  pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.fillStyle = "#e9e9e9"; ctx.fill(); ctx.restore();
+  ctx.save(); pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.clip();
+  if (s.img) pmPhoto(ctx, s.img, c.x, c.y, c.w, c.h, s);
+  else { ctx.fillStyle = "#777"; pmFont(ctx,"general",28,600,0); ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Drop the screenshot here", c.x + c.w/2, c.y + c.h/2); }
+  ctx.restore();
 }
 function pmGuides(ctx, W, H){
   ctx.save(); ctx.strokeStyle = "rgba(74,216,255,.85)"; ctx.lineWidth = 2; ctx.setLineDash([12,10]);
@@ -1322,181 +1376,356 @@ function pmGuides(ctx, W, H){
   ctx.fillText("Grid crop (1:1)", 50, H - sq - 12);
   ctx.restore();
 }
-/* The renderer. One pass per template; opts.guides draws preview-only overlays. */
+function pmElOn(e, s){ return !e.optional || (s.on && s.on[e.id] != null ? s.on[e.id] : e.on !== false); }
+function pmBox(e, m){ /* bounding box used for selection outlines + drag */
+  if (e.type === "text") return m ? { x:m.x, y:m.top, w:m.w, h:m.height } : { x:e.x, y:e.y, w:e.w, h:100 };
+  if (e.type === "pill") return { x:e.x, y:e.y, w:e.w||143, h:e.h||48 };
+  if (e.type === "swipe") return { x:e.x, y:e.y-14, w:215, h:28 };
+  if (e.type === "handle") return { x:e.align==="center" ? e.x-80 : e.align==="right" ? e.x-160 : e.x, y:e.y-24, w:160, h:48 };
+  if (e.type === "circle") return { x:e.cx-e.r, y:e.cy-e.r, w:2*e.r, h:2*e.r };
+  if (e.type === "logo") return { x:e.x-e.h/2, y:e.y-e.h/2, w:e.h, h:e.h };
+  if (e.type === "rule") return { x:40, y:(e.y!=null?e.y:0)-20, w:1000, h:40 };
+  if (e.type === "card") return { x:e.x, y:e.y, w:e.w, h:e.h };
+  if (e.type === "fade") return { x:0, y:e.y, w:1080, h:e.h };
+  if (e.type === "overlay") return { x:e.x, y:e.y, w:e.w, h:e.h };
+  return { x:0, y:0, w:0, h:0 };
+}
+/* The renderer. s = state (photos, text values, toggles, overrides). opts: placeholder, guides, select (element id to outline), images (overlay cache). */
 function pmDraw(canvas, tpl, s, opts){
+  opts = opts || {};
   var W = 1080, H = 1350;
   canvas.width = W; canvas.height = H;
   var ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
   ctx.fillStyle = tpl.bg || "#000"; ctx.fillRect(0,0,W,H);
-  var img = s.img || (opts && opts.placeholder) || null;
-  var out = {};
-
+  var img = s.img || opts.placeholder || null;
   if (tpl.split){
     var img2 = s.img2 || img;
     if (img) pmPhoto(ctx, img, 0, 0, W, 675, s);
     if (img2) pmPhoto(ctx, img2, 0, 675, W, 675, s.img2 ? { zoom:s.zoom2, fx:s.fx2, fy:s.fy2 } : s);
-    var c1 = s.headline.trim() || "Tired dad", c2 = s.sub.trim() || "Also, tired dad";
-    pmBlock(ctx, Object.assign({}, tpl.cap, { text:c1, middle:598 + s.offset, color:"rgb(253,253,253)" }));
-    pmBlock(ctx, Object.assign({}, tpl.cap, { text:c2, middle:1299 + s.offset, color:"rgb(253,253,253)" }));
-    if (opts && opts.guides) pmGuides(ctx, W, H);
-    return canvas;
+  } else if (!tpl.noPhoto && img){
+    pmPhoto(ctx, img, 0, 0, W, tpl.photoH || H, s);
+    if (tpl.photoH){ ctx.fillStyle = tpl.bg || "#000"; ctx.fillRect(0, tpl.photoH, W, H - tpl.photoH); }
   }
-  if (tpl.card){
-    var c = tpl.card;
-    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.18)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
-    pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.fillStyle = "#e9e9e9"; ctx.fill(); ctx.restore();
-    ctx.save(); pmRoundRect(ctx, c.x, c.y, c.w, c.h, c.r); ctx.clip();
-    if (s.img) pmPhoto(ctx, s.img, c.x, c.y, c.w, c.h, s);
-    else { ctx.fillStyle = "#777"; pmFont(ctx,"general",28,600,0); ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Drop the screenshot here", c.x + c.w/2, c.y + c.h/2); }
-    ctx.restore();
-    if (opts && opts.guides) pmGuides(ctx, W, H);
-    return canvas;
+  var boxes = {}, ruleEl = null, headMetrics = null;
+  (tpl.elements || []).forEach(function(e, idx){
+    if (!e.id) e.id = e.type + "-" + idx;
+    if (!pmElOn(e, s)) return;
+    var text;
+    switch (e.type){
+      case "fade": pmFade(ctx, W, H, e); boxes[e.id] = pmBox(e); break;
+      case "overlay":
+        var im = opts.images && opts.images[e.id];
+        if (im) ctx.drawImage(im, e.x, e.y, e.w, e.h);
+        boxes[e.id] = pmBox(e); break;
+      case "circle": pmCircle(ctx, e, s); boxes[e.id] = pmBox({ type:"circle", cx:s.insetX!=null?s.insetX:e.cx, cy:s.insetY!=null?s.insetY:e.cy, r:s.insetR||e.r }); break;
+      case "card": pmCard(ctx, e, s); boxes[e.id] = pmBox(e); break;
+      case "logo": pmLogo(ctx, e.x, e.y, e.h); boxes[e.id] = pmBox(e); break;
+      case "rule": ruleEl = e; break; /* drawn after the headline is measured */
+      case "text":
+        text = (s.text && s.text[e.key] || "").trim() || e.placeholder || (e.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here");
+        var m = pmBlock(ctx, e, text, { size: s.size && s.size[e.key], offset: e.key === "headline" ? s.offset : 0, keywords: s.keywords, upper: e.key === "headline" && s.upper != null ? s.upper : null }, true);
+        if (e.key === "headline" && !headMetrics) headMetrics = m;
+        if (ruleEl && e.key === "headline" && ruleEl.y == null){ pmRule(ctx, W, m.capTop - 40); boxes[ruleEl.id] = { x:40, y:m.capTop-60, w:1000, h:40 }; ruleEl = null; }
+        pmBlock(ctx, e, text, { size: s.size && s.size[e.key], offset: e.key === "headline" ? s.offset : 0, keywords: s.keywords, upper: e.key === "headline" && s.upper != null ? s.upper : null });
+        boxes[e.id] = pmBox(e, m); break;
+      case "pill": pmPill(ctx, e, (s.text && s.text["pill:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
+      case "handle": pmHandle(ctx, e, (s.text && s.text["handle:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
+      case "swipe": pmSwipe(ctx, e.x, e.y); boxes[e.id] = pmBox(e); break;
+    }
+  });
+  if (ruleEl){ pmRule(ctx, W, ruleEl.y != null ? ruleEl.y : 950); boxes[ruleEl.id] = { x:40, y:(ruleEl.y != null ? ruleEl.y : 950)-20, w:1000, h:40 }; }
+  if (opts.guides) pmGuides(ctx, W, H);
+  if (opts.select && boxes[opts.select]){
+    var b = boxes[opts.select];
+    ctx.save(); ctx.strokeStyle = "#d8ff3e"; ctx.lineWidth = 3; ctx.setLineDash([14,10]); ctx.strokeRect(b.x-6, b.y-6, b.w+12, b.h+12); ctx.restore();
   }
-
-  if (img && !tpl.noPhoto) pmPhoto(ctx, img, 0, 0, W, tpl.solidBelow || H, s);
-  if (tpl.solidBelow){ ctx.fillStyle = "#000"; ctx.fillRect(0, tpl.solidBelow, W, H - tpl.solidBelow); }
-  (tpl.layers || []).forEach(function(L){ pmCurve(ctx, W, H, L); });
-  if (tpl.inset) pmInset(ctx, s, tpl.inset);
-  else if (tpl.insetOpt && s.useInset) pmInset(ctx, s, tpl.insetOpt);
-
-  var h = tpl.head, text = s.headline.trim() || (h.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here");
-  var spec = Object.assign({}, h, { text:text, size: s.size || h.size, keywords: s.keywords, color: h.color || (h.font === "poppins" ? "rgb(253,253,253)" : "#fff"), maxLines: 6 });
-  if (h.bottom != null) spec.bottom = h.bottom + s.offset; else spec.top = h.top + s.offset;
-  if (s.upper === false) spec.upper = false;
-  var m = pmBlock(ctx, spec, true);
-  if (tpl.rule && s.rule !== false) pmRule(ctx, W, m.capTop - 40);
-  if (tpl.logoAt && s.rule !== false) pmLogo(ctx, tpl.logoAt.x + tpl.logoAt.h*0.48, tpl.logoAt.y + tpl.logoAt.h/2 + s.offset, tpl.logoAt.h);
-  pmBlock(ctx, spec);
-  if (tpl.sub){
-    var sub = tpl.sub, st = s.sub.trim() || sub.placeholder;
-    pmBlock(ctx, { text:st, font:sub.font, size:sub.size, lh:sub.lh, ls:sub.ls||0, align:sub.align, x:sub.x, w:sub.w, top:sub.top + (sub.top > m.top ? s.offset : 0), color:sub.color, upper:!!sub.upper, shadow:[0.5,2,14] });
-  }
-  if (tpl.pill) pmPill(ctx, tpl.pill);
-  if (tpl.handle) pmHandle(ctx, tpl.handle, s.handle.trim() || tpl.handle.text);
-  if (s.swipe) pmSwipe(ctx, s.swipeSide);
-  if (opts && opts.guides) pmGuides(ctx, W, H);
+  canvas._pmBoxes = boxes;
   return canvas;
 }
 
+/* ---- the tool ---- */
 function postMaker(root){
   var s = {
-    tpl: PM_TEMPLATES[0], img:null, img2:null, inset:null,
-    headline:"", sub:"", keywords:"", handle:"",
-    size:0, offset:0, upper:true, swipe:true, swipeSide:"left", rule:true, guides:false, useInset:false,
+    tpl: null, img:null, img2:null, inset:null,
+    text:{}, keywords:"", size:{}, offset:0, upper:null, on:{}, guides:false,
     zoom:1, fx:0.5, fy:0.5, zoom2:1, fx2:0.5, fy2:0.5,
-    insetR:0, insetX:null, insetY:null, insetZoom:1, insetFx:0.5, insetFy:0.5,
+    insetR:0, insetX:null, insetY:null, insetZoom:1,
     format:"image/jpeg"
   };
+  var images = {}; /* overlay image cache by element id */
   var placeholder = pmPlaceholder(540, 675);
-  var loading = el("div","note","Loading fonts…");
+  var loading = el("div","note","Loading fonts and templates…");
   root.appendChild(loading);
-  pmLoadAssets().then(function(){ loading.remove(); build(); }).catch(function(){ loading.remove(); build(); });
+  Promise.all([pmLoadAssets(), pmLoadCustom()]).then(function(){ loading.remove(); s.tpl = pmAllTemplates()[0]; build(); }).catch(function(){ loading.remove(); s.tpl = pmAllTemplates()[0]; build(); });
 
-  var picker, stage, canvas, panel, timer;
+  var top, picker, stage, canvas, panel, timer, mode = "post", designer = null;
 
   function build(){
-    field(root, "Template");
-    picker = el("div","pm-tpls"); root.appendChild(picker);
-    PM_TEMPLATES.forEach(function(t){
-      var b = el("button","pm-tpl"); b.type = "button"; b.setAttribute("aria-pressed", String(t === s.tpl));
-      var c = document.createElement("canvas"); b.appendChild(c);
-      var thumbState = Object.assign({}, s, { tpl:t, img:null, headline:"", sub:"", keywords:"", handle:"", size:0, swipe:t.swipe, offset:0 });
-      var full = pmDraw(document.createElement("canvas"), t, thumbState, { placeholder: placeholder });
-      c.width = 216; c.height = 270;
-      c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
-      b.appendChild(el("b", null, t.brand + " · " + t.name)); b.appendChild(el("span", null, t.page));
-      b.addEventListener("click", function(){
-        s.tpl = t; s.size = 0; s.swipe = !!t.swipe; s.offset = 0; s.insetR = 0; s.insetX = null; s.insetY = null;
-        picker.querySelectorAll(".pm-tpl").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
-        b.setAttribute("aria-pressed","true");
-        rebuildControls(); render();
-      });
-      picker.appendChild(b);
-    });
-    root.appendChild(el("p","vlead", "Each layout is copied from the Pubity Headline brand template in Canva — same fonts, sizes, spacing and positions. Drop the photo in, write the headline, export at 1080×1350."));
+    top = el("div"); root.appendChild(top);
+    renderPicker();
     stage = el("div","pm-stage");
     canvas = document.createElement("canvas");
     stage.appendChild(canvas); root.appendChild(stage);
     root.appendChild(el("div","pm-hint","Drag to reposition the photo · pinch or scroll to zoom"));
     wireDrag();
     panel = el("div"); root.appendChild(panel);
-    rebuildControls();
-    render();
+    rebuildControls(); render();
+  }
+  function renderPicker(){
+    top.innerHTML = "";
+    field(top, "Template");
+    picker = el("div","pm-tpls"); top.appendChild(picker);
+    pmAllTemplates().forEach(function(t){
+      var b = el("button","pm-tpl"); b.type = "button"; b.setAttribute("aria-pressed", String(t === s.tpl));
+      var c = document.createElement("canvas"); b.appendChild(c);
+      var thumbState = { text:{}, on:{}, size:{}, zoom:1, fx:0.5, fy:0.5 };
+      loadOverlays(t).then(function(){
+        var full = pmDraw(document.createElement("canvas"), t, thumbState, { placeholder: placeholder, images: images });
+        c.width = 216; c.height = 270; c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
+      });
+      c.width = 216; c.height = 270;
+      b.appendChild(el("b", null, (t.brand ? t.brand + " · " : "") + t.name));
+      b.appendChild(el("span", null, t.shared ? "Team template" : t.custom ? "Saved on this device" : (t.page || "")));
+      b.addEventListener("click", function(){ selectTemplate(t); });
+      picker.appendChild(b);
+    });
+    var row = el("div","row"); row.style.marginTop = "10px";
+    var mk = el("button","btn ghost", mode === "design" ? "Close designer" : "Design a template"); mk.type = "button";
+    mk.addEventListener("click", function(){ if (mode === "design") leaveDesigner(); else enterDesigner(); });
+    row.appendChild(mk);
+    var imp = el("button","btn ghost","Import template file"); imp.type = "button";
+    var fin = document.createElement("input"); fin.type = "file"; fin.accept = "application/json,.json"; fin.style.display = "none";
+    fin.addEventListener("change", function(){ var f = fin.files && fin.files[0]; if (!f) return; var r = new FileReader(); r.onload = function(){ try { var t = JSON.parse(r.result); if (!t.elements) throw 0; t.custom = true; delete t.shared; pmSaveCustom(t); s.tpl = t; renderPicker(); rebuildControls(); render(); toast("Template added"); } catch(e){ toast("That isn't a template file"); } }; r.readAsText(f); });
+    imp.appendChild(fin); imp.addEventListener("click", function(){ fin.click(); });
+    row.appendChild(imp);
+    top.appendChild(row);
+    top.appendChild(el("p","vlead", mode === "design" ? "Designer: tap an element to select it, drag it on the preview, and tune it below. Save stores it on this device and downloads a file — put that file in the repo's templates folder (or send it over) and everyone gets it." : "Pick a template, drop the photo in, write the headline. Built-ins are copied from the Pubity Headline Canva file; your saved designs appear first."));
+  }
+  function selectTemplate(t){
+    s.tpl = t; s.size = {}; s.offset = 0; s.on = {}; s.insetR = 0; s.insetX = null; s.insetY = null; s.upper = null;
+    if (mode === "design") { designer = pmNewDesigner(t); }
+    renderPicker(); rebuildControls(); render();
+  }
+  function loadOverlays(t){
+    var ps = (t.elements || []).filter(function(e){ return e.type === "overlay" && e.src && !images[e.id]; }).map(function(e){
+      return new Promise(function(res){ var i = new Image(); i.onload = function(){ images[e.id] = i; res(); }; i.onerror = function(){ res(); }; i.src = e.src; });
+    });
+    return Promise.all(ps);
   }
 
+  /* ----- post mode controls ----- */
   function rebuildControls(){
     panel.innerHTML = "";
-    var t = s.tpl, h = t.head;
-    /* photos */
+    if (mode === "design") return rebuildDesigner();
+    var t = s.tpl;
+    var cardEl = (t.elements||[]).filter(function(e){ return e.type === "card"; })[0];
     if (t.split){
       dropZone(panel, { accept:"image/*", label:"Top photo", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
       dropZone(panel, { accept:"image/*", label:"Bottom photo", hint:"or drag & drop", onFile:function(f){ loadInto("img2", f); } });
-    } else if (t.card){
+    } else if (cardEl){
       dropZone(panel, { accept:"image/*", label:"Choose the screenshot", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
-    } else {
+    } else if (!t.noPhoto){
       dropZone(panel, { accept:"image/*", label:"Choose the photo", hint:"or drag & drop — paste works too", onFile:function(f){ loadInto("img", f); } });
     }
-    if (t.inset || t.insetOpt){
-      if (t.insetOpt) segmented(panel, "Circle inset", [{label:"Off",value:"off"},{label:"On",value:"on"}], s.useInset ? "on" : "off", function(v){ s.useInset = v === "on"; rebuildControls(); render(); });
-      if (t.inset || s.useInset){
-        var def = t.inset || t.insetOpt;
+    var circle = (t.elements||[]).filter(function(e){ return e.type === "circle"; })[0];
+    if (circle){
+      if (circle.optional) segmented(panel, circle.label || "Circle inset", [{label:"Off",value:"off"},{label:"On",value:"on"}], pmElOn(circle, s) ? "on" : "off", function(v){ s.on[circle.id] = v === "on"; rebuildControls(); render(); });
+      if (pmElOn(circle, s)){
         dropZone(panel, { accept:"image/*", label:"Screenshot for the circle", hint:"or drag & drop", onFile:function(f){ loadInto("inset", f); } });
-        slider(panel, "Circle size", 120, 420, 2, s.insetR || def.r, function(v){ return v*2 + " px"; }, function(v){ s.insetR = v; go(); });
-        slider(panel, "Circle left / right", 0, 1080, 2, s.insetX != null ? s.insetX : def.cx, function(v){ return v + " px"; }, function(v){ s.insetX = v; go(); });
-        slider(panel, "Circle up / down", 0, 1350, 2, s.insetY != null ? s.insetY : def.cy, function(v){ return v + " px"; }, function(v){ s.insetY = v; go(); });
+        slider(panel, "Circle size", 120, 420, 2, s.insetR || circle.r, function(v){ return v*2 + " px"; }, function(v){ s.insetR = v; go(); });
+        slider(panel, "Circle left / right", 0, 1080, 2, s.insetX != null ? s.insetX : circle.cx, function(v){ return v + " px"; }, function(v){ s.insetX = v; go(); });
+        slider(panel, "Circle up / down", 0, 1350, 2, s.insetY != null ? s.insetY : circle.cy, function(v){ return v + " px"; }, function(v){ s.insetY = v; go(); });
         slider(panel, "Screenshot zoom", 100, 300, 1, Math.round(s.insetZoom*100), function(v){ return v + "%"; }, function(v){ s.insetZoom = v/100; go(); });
       }
     }
-    /* text */
-    if (!t.card){
-      var headLabel = t.split ? "Top caption" : "Headline";
-      textBox(panel, headLabel, t.split ? "Tired dad" : "Write the headline — Enter forces a line break", s.headline, function(v){ s.headline = v; go(); }, !t.split).rows = 3;
-      if (t.split) textBox(panel, "Bottom caption", "Also, tired dad", s.sub, function(v){ s.sub = v; go(); });
-      if (t.sub) textBox(panel, t.sub.label, t.sub.placeholder, s.sub, function(v){ s.sub = v; go(); }, !!t.sub.area);
-      if (h && h.kw) textBox(panel, h.kw === "color" ? "Keyword in blue (comma-separated)" : "Keywords in extra bold (comma-separated)", "dad, best friend", s.keywords, function(v){ s.keywords = v; go(); });
-      if (t.handle) textBox(panel, "Handle", t.handle.text, s.handle, function(v){ s.handle = v; go(); });
-      if (h){
-        slider(panel, "Text size", 40, 180, 0.5, s.size || h.size, function(v){ return v + " px" + (Math.abs(v - h.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size = v; go(); });
-        slider(panel, "Text position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
-        segmented(panel, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], s.upper ? "up" : "as", function(v){ s.upper = v === "up"; go(); });
-      } else if (t.split){
-        slider(panel, "Caption position", -300, 300, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
-      }
+    var texts = (t.elements||[]).filter(function(e){ return e.type === "text"; });
+    texts.forEach(function(e){
+      var tb = textBox(panel, e.label || e.key, e.placeholder || (e.key === "headline" ? "Write the headline — Enter forces a line break" : ""), s.text[e.key] || "", function(v){ s.text[e.key] = v; go(); }, !!e.area);
+      if (e.area) tb.rows = 3;
+      if (e.kw) textBox(panel, e.kw === "color" ? "Keywords in colour (comma-separated)" : "Keywords in extra bold (comma-separated)", "dad, best friend", s.keywords, function(v){ s.keywords = v; go(); });
+    });
+    (t.elements||[]).forEach(function(e){
+      if (e.type === "pill") textBox(panel, (e.label || "Pill") + " text", e.text, s.text["pill:"+e.id] || "", function(v){ s.text["pill:"+e.id] = v; go(); });
+      if (e.type === "handle") textBox(panel, (e.label || "Handle") + " text", e.text, s.text["handle:"+e.id] || "", function(v){ s.text["handle:"+e.id] = v; go(); });
+    });
+    var head = texts.filter(function(e){ return e.key === "headline"; })[0];
+    if (head){
+      slider(panel, "Text size", 24, 180, 0.5, s.size.headline || head.size, function(v){ return v + " px" + (Math.abs(v - head.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size.headline = v; go(); });
+      slider(panel, "Text position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
+      segmented(panel, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], (s.upper == null ? head.upper : s.upper) ? "up" : "as", function(v){ s.upper = v === "up"; go(); });
     }
-    /* photo adjustments */
-    if (!t.noPhoto || t.card){
-      slider(panel, t.split ? "Top photo zoom" : t.card ? "Screenshot zoom" : "Photo zoom", 100, 300, 1, Math.round(s.zoom*100), function(v){ return v + "%"; }, function(v){ s.zoom = v/100; go(); });
+    if (!t.noPhoto || cardEl){
+      slider(panel, t.split ? "Top photo zoom" : cardEl ? "Screenshot zoom" : "Photo zoom", 100, 300, 1, Math.round(s.zoom*100), function(v){ return v + "%"; }, function(v){ s.zoom = v/100; go(); });
       if (t.split) slider(panel, "Bottom photo zoom", 100, 300, 1, Math.round(s.zoom2*100), function(v){ return v + "%"; }, function(v){ s.zoom2 = v/100; go(); });
     }
-    var toggles = [];
-    if (t.rule) toggles.push({label:"P + rule",value:"rule"});
-    if (t.logoAt) toggles.push({label:"P logo",value:"rule"});
-    if (!t.card && !t.split) toggles.push({label:"SWIPE tag",value:"swipe"});
-    if (!t.card && !t.split) segmented(panel, "SWIPE tag position", [{label:"Top left (Canva)",value:"left"},{label:"Top right",value:"right"}], s.swipeSide, function(v){ s.swipeSide = v; go(); });
-    toggles.push({label:"Guides",value:"guides"});
-    var f = field(panel, "Extras");
-    var box = el("div","seg");
-    toggles.forEach(function(o){
-      var b = el("button", null, o.label); b.type = "button"; b.setAttribute("aria-pressed", String(!!s[o.value]));
-      b.addEventListener("click", function(){ s[o.value] = !s[o.value]; b.setAttribute("aria-pressed", String(s[o.value])); go(); });
+    var toggles = (t.elements||[]).filter(function(e){ return e.optional && e.type !== "circle"; });
+    var f = field(panel, "Extras"); var box = el("div","seg");
+    toggles.forEach(function(e){
+      var b = el("button", null, e.label || e.type); b.type = "button"; b.setAttribute("aria-pressed", String(pmElOn(e, s)));
+      b.addEventListener("click", function(){ s.on[e.id] = !pmElOn(e, s); b.setAttribute("aria-pressed", String(s.on[e.id])); go(); });
       box.appendChild(b);
     });
-    f.appendChild(box);
-    var reset = button(panel, "Reset photo position", "ghost", function(){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; rebuildControls(); render(); });
-    reset.style.marginTop = "4px";
-    /* export */
+    var g = el("button", null, "Guides"); g.type = "button"; g.setAttribute("aria-pressed", String(s.guides));
+    g.addEventListener("click", function(){ s.guides = !s.guides; g.setAttribute("aria-pressed", String(s.guides)); go(); });
+    box.appendChild(g); f.appendChild(box);
+    button(panel, "Reset photo position", "ghost", function(){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; rebuildControls(); render(); }).style.marginTop = "4px";
     segmented(panel, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], s.format, function(v){ s.format = v; });
     var exportRow = el("div","row"); exportRow.style.marginTop = "14px";
     var saveB = el("button","btn",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>Save post');
     saveB.addEventListener("click", function(){ exportPost(false); });
-    var copyB = el("button","btn ghost","Copy");
-    copyB.addEventListener("click", function(){ exportPost(true); });
-    exportRow.appendChild(saveB); exportRow.appendChild(copyB);
-    panel.appendChild(exportRow);
-    panel.appendChild(el("div","note","Exports at 1080×1350, the same as the Canva page. On iPhone you can also press and hold the preview to save it straight to Photos."));
+    var copyB = el("button","btn ghost","Copy"); copyB.addEventListener("click", function(){ exportPost(true); });
+    exportRow.appendChild(saveB); exportRow.appendChild(copyB); panel.appendChild(exportRow);
+    panel.appendChild(el("div","note","Exports at 1080×1350. On iPhone you can also press and hold the preview to save it straight to Photos."));
   }
 
+  /* ----- designer ----- */
+  function pmNewDesigner(base){
+    var t = JSON.parse(JSON.stringify(base));
+    if (!base.custom || base.shared){ t.id = (base.id || "template") + "-" + Date.now().toString(36); t.name = base.name + " (copy)"; }
+    t.custom = true; delete t.shared; delete t.page;
+    (t.elements || []).forEach(function(e, i){ e.id = e.id || (e.type + "-" + i); });
+    return { tpl: t, sel: null, dirty: false };
+  }
+  function enterDesigner(){ mode = "design"; designer = pmNewDesigner(s.tpl); renderPicker(); rebuildControls(); render(); }
+  function leaveDesigner(){ mode = "post"; designer = null; renderPicker(); rebuildControls(); render(); }
+  function dsel(){ return designer && designer.tpl.elements.filter(function(e){ return e.id === designer.sel; })[0]; }
+  function rebuildDesigner(){
+    var t = designer.tpl;
+    textBox(panel, "Template name", "e.g. Pubity headline v2", t.name, function(v){ t.name = v; });
+    textBox(panel, "Brand label", "Pubity, @dads, Memezar…", t.brand || "", function(v){ t.brand = v; });
+    dropZone(panel, { accept:"image/*", label:"Test photo for the preview", hint:"not saved with the template", onFile:function(f){ loadInto("img", f); } });
+    /* element list */
+    field(panel, "Elements (draw order, bottom to top)");
+    var list = el("div","pm-els");
+    t.elements.forEach(function(e, i){
+      var b = el("button","pm-el", (e.type === "text" ? "T " : e.type === "fade" ? "▼ " : e.type === "overlay" ? "▣ " : "● ") + (e.label || e.key || e.type)); b.type = "button";
+      b.setAttribute("aria-pressed", String(e.id === designer.sel));
+      b.addEventListener("click", function(){ designer.sel = e.id; rebuildControls(); render(); });
+      list.appendChild(b);
+    });
+    panel.appendChild(list);
+    var addRow = el("div","seg"); addRow.style.marginTop = "8px";
+    [["Text","text"],["Overlay PNG","overlay"],["Fade","fade"],["P + rule","rule"],["P logo","logo"],["SWIPE","swipe"],["Pill","pill"],["Handle","handle"],["Circle","circle"]].forEach(function(o){
+      var b = el("button", null, "+ " + o[0]); b.type = "button";
+      b.addEventListener("click", function(){ addElement(o[1]); });
+      addRow.appendChild(b);
+    });
+    var af = field(panel, "Add an element"); af.appendChild(addRow);
+    /* selected element editor */
+    var e = dsel();
+    if (e){
+      panel.appendChild(el("div","pm-sep", "Selected: " + (e.label || e.key || e.type)));
+      var ctl = el("div"); panel.appendChild(ctl);
+      elementControls(ctl, e);
+      var rowb = el("div","row"); rowb.style.marginTop = "8px";
+      var up = el("button","btn ghost","Move down a layer"); up.addEventListener("click", function(){ reorder(e, -1); });
+      var dn = el("button","btn ghost","Move up a layer"); dn.addEventListener("click", function(){ reorder(e, 1); });
+      var del = el("button","btn ghost","Delete"); del.style.color = "#ff7b7b"; del.addEventListener("click", function(){ t.elements = t.elements.filter(function(x){ return x !== e; }); designer.sel = null; rebuildControls(); render(); });
+      rowb.appendChild(up); rowb.appendChild(dn); rowb.appendChild(del); panel.appendChild(rowb);
+    } else panel.appendChild(el("div","note","Tap an element above (or on the preview) to edit it."));
+    /* page options */
+    segmented(panel, "Photo area", [{label:"Full page",value:"full"},{label:"None (solid page)",value:"none"},{label:"Two photos",value:"split"}], t.split ? "split" : t.noPhoto ? "none" : "full", function(v){ t.split = v === "split"; t.noPhoto = v === "none"; render(); });
+    var bgf = field(panel, "Page colour"); var ci = document.createElement("input"); ci.type = "color"; ci.value = pmHex(t.bg || "#000000"); ci.addEventListener("input", function(){ t.bg = ci.value; render(); }); bgf.appendChild(ci);
+    var g = field(panel, "Guides"); var gb = el("div","seg"); var gbtn = el("button", null, "Show guides"); gbtn.type="button"; gbtn.setAttribute("aria-pressed", String(s.guides)); gbtn.addEventListener("click", function(){ s.guides = !s.guides; gbtn.setAttribute("aria-pressed", String(s.guides)); render(); }); gb.appendChild(gbtn); g.appendChild(gb);
+    /* save */
+    var saveRow = el("div","row"); saveRow.style.marginTop = "16px";
+    var sv = el("button","btn","Save template"); sv.addEventListener("click", function(){ saveTemplate(false); });
+    var sh = el("button","btn ghost","Save + download file"); sh.addEventListener("click", function(){ saveTemplate(true); });
+    saveRow.appendChild(sv); saveRow.appendChild(sh); panel.appendChild(saveRow);
+    if (s.tpl.custom && !s.tpl.shared){
+      var rm = button(panel, "Delete this saved template", "ghost", function(){ if (confirm("Delete “" + s.tpl.name + "” from this device?")) { pmDeleteCustom(s.tpl.id); s.tpl = pmAllTemplates()[0]; leaveDesigner(); } });
+      rm.style.marginTop = "8px"; rm.style.color = "#ff7b7b";
+    }
+    panel.appendChild(el("div","note","Saving keeps the template on this device and (with the file) downloads templates-<name>.json. To share it with everyone, add the file's contents to templates/custom.json in the repo, or send the file over."));
+  }
+  function pmHex(c){ if (/^#/.test(c)) return c.length === 4 ? "#" + c[1]+c[1]+c[2]+c[2]+c[3]+c[3] : c; var m = c.match(/\d+/g); if (!m) return "#000000"; return "#" + m.slice(0,3).map(function(n){ return ("0"+(+n).toString(16)).slice(-2); }).join(""); }
+  function reorder(e, dir){ var a = designer.tpl.elements, i = a.indexOf(e), j = i + dir; if (j < 0 || j >= a.length) return; a[i] = a[j]; a[j] = e; rebuildControls(); render(); }
+  function addElement(type){
+    var t = designer.tpl, id = type + "-" + Date.now().toString(36), e;
+    switch (type){
+      case "text": e = pmText(t.elements.some(function(x){ return x.key === "headline"; }) ? "text" + Date.now().toString(36).slice(-4) : "headline", "Text", PM_HEAD); e.label = e.key === "headline" ? "Headline" : "Text"; break;
+      case "overlay": e = { type:"overlay", label:"Overlay PNG", x:0, y:0, w:1080, h:1350, src:"" }; break;
+      case "fade": e = { type:"fade", label:"Fade", curve:"black", color:PM_BLACK, y:781, h:704 }; break;
+      case "rule": e = { type:"rule", label:"P + rule" }; break;
+      case "logo": e = { type:"logo", label:"P logo", x:540, y:900, h:40 }; break;
+      case "swipe": e = { type:"swipe", label:"SWIPE tag", x:120, y:59, optional:true, on:true }; break;
+      case "pill": e = { type:"pill", label:"Pill", text:"TRENDING", x:37, y:890 }; break;
+      case "handle": e = { type:"handle", label:"Handle", text:"@DADS", x:1046, y:1288, size:36, align:"right" }; break;
+      case "circle": e = { type:"circle", label:"Circle inset", cx:806, cy:268, r:268, optional:true, on:true }; break;
+    }
+    e.id = id; t.elements.push(e); designer.sel = id; rebuildControls(); render();
+  }
+  function elementControls(ctl, e){
+    var t = designer.tpl;
+    function num(label, key, min, max, step, fmt){ slider(ctl, label, min, max, step, e[key], fmt || function(v){ return v + " px"; }, function(v){ e[key] = v; render(); }); }
+    if (e.type !== "fade" && e.type !== "rule") textBox(ctl, "Label", "", e.label || "", function(v){ e.label = v; });
+    if (e.type === "text"){
+      textBox(ctl, "Field name (headline, sub…)", "headline", e.key, function(v){ e.key = v.trim() || "text"; });
+      textBox(ctl, "Placeholder shown when empty", "", e.placeholder || "", function(v){ e.placeholder = v; render(); });
+      dropdown(ctl, "Font", Object.keys(PM_FONTS).map(function(k){ return { value:k, label:PM_FONTS[k].label }; }), e.font, function(v){ e.font = v; render(); });
+      num("Size", "size", 16, 200, 0.5);
+      slider(ctl, "Line height (× size)", 0.7, 1.6, 0.005, e.lh < 3 ? e.lh : e.lh / e.size, function(v){ return v.toFixed(3); }, function(v){ e.lh = v; render(); });
+      slider(ctl, "Letter spacing", -0.05, 0.1, 0.001, e.ls || 0, function(v){ return (v*100).toFixed(1) + "%"; }, function(v){ e.ls = v; render(); });
+      segmented(ctl, "Align", [{label:"Left",value:"left"},{label:"Centre",value:"center"},{label:"Right",value:"right"}], e.align, function(v){ e.align = v; render(); });
+      segmented(ctl, "Anchor (which edge stays put)", [{label:"Top",value:"top"},{label:"Bottom",value:"bottom"},{label:"Middle",value:"middle"}], e.anchor || "top", function(v){ var m = pmBlock(canvas.getContext("2d"), e, "X", {}, true); if (v==="bottom") e.y = m.bottom; else if (v==="middle") e.y = (m.top+m.bottom)/2; else e.y = m.top; e.anchor = v; render(); });
+      num("Box left", "x", -200, 1080, 1); num("Box width", "w", 100, 1280, 1); num("Box position (y)", "y", 0, 1400, 1);
+      var cf = field(ctl, "Colour"); var ci = document.createElement("input"); ci.type = "color"; ci.value = pmHex(e.color || "#ffffff"); ci.addEventListener("input", function(){ e.color = ci.value; render(); }); cf.appendChild(ci);
+      segmented(ctl, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], e.upper ? "up" : "as", function(v){ e.upper = v === "up"; render(); });
+      segmented(ctl, "Keyword style", [{label:"None",value:""},{label:"Extra bold",value:"bold"},{label:"Colour",value:"color"}], e.kw || "", function(v){ e.kw = v; rebuildControls(); render(); });
+      if (e.kw === "color"){ var kf = field(ctl, "Keyword colour"); var ki = document.createElement("input"); ki.type = "color"; ki.value = pmHex(e.kwColor || "#000aff"); ki.addEventListener("input", function(){ e.kwColor = ki.value; render(); }); kf.appendChild(ki); }
+      slider(ctl, "Shadow strength", 0, 1, 0.05, e.shadow ? e.shadow[0] : 0, function(v){ return Math.round(v*100) + "%"; }, function(v){ e.shadow = [v, e.shadow ? e.shadow[1] : 4, e.shadow ? e.shadow[2] : 30]; render(); });
+      segmented(ctl, "Input type", [{label:"Multi-line",value:"area"},{label:"Single line",value:"line"}], e.area ? "area" : "line", function(v){ e.area = v === "area"; });
+    }
+    if (e.type === "overlay"){
+      dropZone(ctl, { accept:"image/png,image/*", label: e.src ? "Replace the overlay PNG" : "Choose the overlay PNG", hint:"export the Canva page with the photo and text removed, transparent background", onFile:function(f){
+        if (!/^image\//.test(f.type)) return toast("That's not an image");
+        if (f.size > 4*1024*1024) toast("Large file — the template file will be big");
+        blobToDataURL(f).then(function(url){ e.src = url; delete images[e.id]; loadOverlays(t).then(function(){ var im = images[e.id]; if (im && e.w === 1080 && e.h === 1350 && (im.width !== 1080 || im.height !== 1350)) { e.w = Math.round(im.width * 1080 / im.width); e.h = Math.round(im.height * 1080 / im.width); } render(); }); });
+      } });
+      num("Left", "x", -1080, 1080, 1); num("Top", "y", -1350, 1350, 1); num("Width", "w", 10, 2160, 1); num("Height", "h", 10, 2700, 1);
+    }
+    if (e.type === "fade"){
+      segmented(ctl, "Curve", [{label:"Canva black fade",value:"black"},{label:"Soft (dads)",value:"soft"},{label:"Short strip",value:"strip"}], e.curve, function(v){ e.curve = v; render(); });
+      var ff = field(ctl, "Colour"); var fi = document.createElement("input"); fi.type = "color"; fi.value = pmHex("rgb(" + e.color + ")"); fi.addEventListener("input", function(){ var m = fi.value.match(/[0-9a-f]{2}/gi); e.color = m.map(function(h){ return parseInt(h,16); }).join(","); render(); }); ff.appendChild(fi);
+      num("Starts at (y)", "y", -800, 1350, 1); num("Height", "h", 50, 2000, 1);
+    }
+    if (e.type === "rule"){
+      segmented(ctl, "Position", [{label:"Auto: 40px above headline",value:"auto"},{label:"Fixed",value:"fixed"}], e.y == null ? "auto" : "fixed", function(v){ if (v === "auto") delete e.y; else e.y = 950; rebuildControls(); render(); });
+      if (e.y != null) num("Rule y", "y", 0, 1350, 1);
+    }
+    if (e.type === "logo"){ num("Centre x", "x", 0, 1080, 1); num("Centre y", "y", 0, 1350, 1); num("Height", "h", 16, 400, 1); }
+    if (e.type === "swipe"){ num("Left", "x", 0, 900, 1); num("Centre y", "y", 10, 1340, 1); }
+    if (e.type === "pill"){
+      textBox(ctl, "Default text", "TRENDING", e.text, function(v){ e.text = v; render(); });
+      num("Left", "x", 0, 1080, 1); num("Top", "y", 0, 1350, 1); slider(ctl, "Width", 60, 600, 1, e.w || 143, function(v){ return v + " px"; }, function(v){ e.w = v; render(); }); slider(ctl, "Height", 24, 160, 1, e.h || 48, function(v){ return v + " px"; }, function(v){ e.h = v; render(); }); slider(ctl, "Text size", 12, 100, 0.5, e.size || 33, function(v){ return v + " px"; }, function(v){ e.size = v; render(); });
+      var pf = field(ctl, "Pill colour"); var pi = document.createElement("input"); pi.type = "color"; pi.value = pmHex(e.color || "rgb(0,11,255)"); pi.addEventListener("input", function(){ e.color = pi.value; render(); }); pf.appendChild(pi);
+    }
+    if (e.type === "handle"){
+      textBox(ctl, "Default text", "@DADS", e.text, function(v){ e.text = v; render(); });
+      num("x", "x", 0, 1080, 1); num("Centre y", "y", 0, 1350, 1); num("Size", "size", 12, 120, 0.5);
+      segmented(ctl, "Align", [{label:"Left",value:"left"},{label:"Centre",value:"center"},{label:"Right",value:"right"}], e.align, function(v){ e.align = v; render(); });
+    }
+    if (e.type === "circle"){ num("Centre x", "cx", 0, 1080, 1); num("Centre y", "cy", 0, 1350, 1); num("Radius", "r", 40, 540, 1); slider(ctl, "Ring", 0, 30, 1, e.ring || 10, function(v){ return v + " px"; }, function(v){ e.ring = v; render(); }); }
+    if (e.type === "card"){ num("Left", "x", 0, 1080, 1); num("Top", "y", 0, 1350, 1); num("Width", "w", 50, 1080, 1); num("Height", "h", 50, 1350, 1); num("Corner radius", "r", 0, 200, 1); }
+    if (e.type === "swipe" || e.type === "circle" || e.type === "pill" || e.type === "handle" || e.type === "logo" || e.type === "rule" || e.type === "overlay"){
+      segmented(ctl, "In the post tool", [{label:"Always on",value:"always"},{label:"Toggle, on by default",value:"on"},{label:"Toggle, off by default",value:"off"}], e.optional ? (e.on === false ? "off" : "on") : "always", function(v){ e.optional = v !== "always"; e.on = v !== "off"; render(); });
+    }
+  }
+  function saveTemplate(download){
+    var t = designer.tpl;
+    if (!t.name || !t.name.trim()) return toast("Give the template a name first");
+    t.custom = true;
+    pmSaveCustom(t);
+    s.tpl = t;
+    if (download){
+      var blob = new Blob([JSON.stringify(t, null, 1)], { type:"application/json" });
+      saveFile("template-" + (t.id || "custom") + ".json", blob);
+    } else toast("Saved on this device");
+    renderPicker();
+  }
+
+  /* ----- shared bits ----- */
   function loadInto(key, file){
     if (!/^image\//.test(file.type)) { toast("That's not an image file"); return; }
     loadBlobImage(file).then(function(i){
@@ -1507,42 +1736,51 @@ function postMaker(root){
     }).catch(function(){ toast("Couldn't read that image"); });
   }
   function go(){ clearTimeout(timer); timer = setTimeout(render, 60); }
+  function curTpl(){ return mode === "design" ? designer.tpl : s.tpl; }
   function render(){
-    try { pmDraw(canvas, s.tpl, s, { guides: s.guides, placeholder: placeholder }); }
-    catch(e){ toast("Render error: " + e.message); }
+    var t = curTpl();
+    loadOverlays(t).then(function(){
+      try { pmDraw(canvas, t, s, { guides: s.guides, placeholder: placeholder, images: images, select: mode === "design" ? designer.sel : null }); }
+      catch(e){ toast("Render error: " + e.message); }
+    });
   }
   async function exportPost(copy){
-    var out = pmDraw(document.createElement("canvas"), s.tpl, s, { placeholder: placeholder });
+    var t = curTpl();
+    await loadOverlays(t);
+    var out = pmDraw(document.createElement("canvas"), t, s, { placeholder: placeholder, images: images });
     var blob = await canvasToBlob(out, s.format, 0.92);
     if (!blob) { toast("Export failed"); return; }
     if (copy) return copyImage(blob);
-    var slug = (s.headline || "post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "post";
-    saveFile(s.tpl.id + "-" + slug + "." + extFor(s.format), blob);
+    var slug = ((s.text.headline) || "post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "post";
+    saveFile((t.id || "post") + "-" + slug + "." + extFor(s.format), blob);
   }
 
-  /* drag + pinch on the preview moves/zooms the photo (bottom photo on the split layout when you start in the lower half) */
+  /* drag: post mode moves the photo; designer mode moves the selected element (or selects what you tap) */
   function wireDrag(){
-    var pts = {}, last = null, pinch = null, which = "";
+    var pts = {}, last = null, pinch = null, which = "", dragEl = null, moved = false;
     canvas.style.touchAction = "none";
-    function target(e){
-      if (s.tpl.split){ var r = canvas.getBoundingClientRect(); return (e.clientY - r.top) / r.height > 0.5 && s.img2 ? "2" : ""; }
-      return "";
-    }
+    function cpos(e){ var r = canvas.getBoundingClientRect(); return { x:(e.clientX - r.left) * 1080 / r.width, y:(e.clientY - r.top) * 1350 / r.height }; }
+    function target(e){ if (curTpl().split){ var r = canvas.getBoundingClientRect(); return (e.clientY - r.top) / r.height > 0.5 && s.img2 ? "2" : ""; } return ""; }
     function pos(e){ return { x:e.clientX, y:e.clientY }; }
     canvas.addEventListener("pointerdown", function(e){
-      if (!s.img) return;
-      pts[e.pointerId] = pos(e); canvas.setPointerCapture(e.pointerId); stage.classList.add("drag");
+      pts[e.pointerId] = pos(e); canvas.setPointerCapture(e.pointerId); stage.classList.add("drag"); moved = false;
+      dragEl = null;
+      if (mode === "design"){
+        var p = cpos(e), boxes = canvas._pmBoxes || {}, hit = null;
+        designer.tpl.elements.slice().reverse().forEach(function(el){ if (hit) return; var b = boxes[el.id]; if (b && el.type !== "fade" && p.x >= b.x-10 && p.x <= b.x+b.w+10 && p.y >= b.y-10 && p.y <= b.y+b.h+10) hit = el; });
+        if (hit){ dragEl = hit; if (designer.sel !== hit.id){ designer.sel = hit.id; rebuildControls(); render(); } }
+      }
       which = target(e);
       var ids = Object.keys(pts);
-      if (ids.length === 2){ var a = pts[ids[0]], b = pts[ids[1]]; pinch = { d: Math.hypot(a.x-b.x, a.y-b.y), zoom: s["zoom"+which] }; }
+      if (ids.length === 2 && s.img){ var a = pts[ids[0]], b = pts[ids[1]]; pinch = { d: Math.hypot(a.x-b.x, a.y-b.y), zoom: s["zoom"+which] }; }
       else last = pos(e);
       e.preventDefault();
     });
     canvas.addEventListener("pointermove", function(e){
-      if (!pts[e.pointerId] || !s.img) return;
+      if (!pts[e.pointerId]) return;
       pts[e.pointerId] = pos(e);
       var ids = Object.keys(pts);
-      if (ids.length >= 2 && pinch){
+      if (ids.length >= 2 && pinch && s.img){
         var a = pts[ids[0]], b = pts[ids[1]];
         s["zoom"+which] = Math.min(3, Math.max(1, pinch.zoom * Math.hypot(a.x-b.x, a.y-b.y) / pinch.d));
         go(); return;
@@ -1550,18 +1788,29 @@ function postMaker(root){
       if (!last) return;
       var scale = 1080 / canvas.getBoundingClientRect().width;
       var dx = (e.clientX - last.x) * scale, dy = (e.clientY - last.y) * scale;
-      last = pos(e);
-      var im = which ? s.img2 : s.img, areaH = s.tpl.split ? 675 : (s.tpl.card ? s.tpl.card.h : (s.tpl.solidBelow || 1350)), areaW = s.tpl.card ? s.tpl.card.w : 1080;
+      last = pos(e); moved = true;
+      if (dragEl){
+        var el = dragEl;
+        if (el.type === "circle"){ el.cx = Math.round(el.cx + dx); el.cy = Math.round(el.cy + dy); }
+        else if (el.type === "fade"){ el.y = Math.round(el.y + dy); }
+        else if (el.type === "rule"){ el.y = Math.round((el.y != null ? el.y : (canvas._pmBoxes[el.id] ? canvas._pmBoxes[el.id].y + 20 : 950)) + dy); }
+        else { if (el.x != null) el.x = Math.round(el.x + dx); if (el.y != null) el.y = Math.round(el.y + dy); }
+        render(); return;
+      }
+      if (!s.img) return;
+      var im = which ? s.img2 : s.img, t = curTpl();
+      var cardEl = (t.elements||[]).filter(function(x){ return x.type === "card"; })[0];
+      var areaH = t.split ? 675 : (cardEl ? cardEl.h : (t.photoH || 1350)), areaW = cardEl ? cardEl.w : 1080;
       var base = Math.max(areaW/im.width, areaH/im.height) * s["zoom"+which];
       var dw = im.width*base - areaW, dh = im.height*base - areaH;
       if (dw > 1) s["fx"+which] = Math.min(1, Math.max(0, s["fx"+which] - dx/dw));
       if (dh > 1) s["fy"+which] = Math.min(1, Math.max(0, s["fy"+which] - dy/dh));
       render();
     });
-    function up(e){ delete pts[e.pointerId]; last = null; pinch = null; if (!Object.keys(pts).length) stage.classList.remove("drag"); }
+    function up(e){ delete pts[e.pointerId]; last = null; pinch = null; if (!Object.keys(pts).length) stage.classList.remove("drag"); if (dragEl && moved) rebuildControls(); dragEl = null; }
     canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
     canvas.addEventListener("wheel", function(e){
-      if (!s.img) return; e.preventDefault();
+      if (!s.img || mode === "design") return; e.preventDefault();
       var w = target(e);
       s["zoom"+w] = Math.min(3, Math.max(1, s["zoom"+w] * (e.deltaY < 0 ? 1.05 : 0.95))); go();
     }, { passive:false });
@@ -1569,8 +1818,8 @@ function postMaker(root){
 }
 
 TOOLS.unshift({ id:"postmaker", cat:"Image", icon:"post", name:"Post maker",
-  desc:"Pubity + @dads Canva layouts — drop a photo, write the headline, export",
-  lead:"The daily-post layouts from the Canva brand template, rebuilt pixel for pixel. Everything renders on your device at full size.",
+  desc:"Pubity + @dads layouts, plus a designer to make your own templates",
+  lead:"Drop a photo in, write the headline, export at full size. Open the designer to lay out a template exactly how it should look and save it for everyone.",
   build:function(root){ postMaker(root); }
 });
 
