@@ -156,6 +156,7 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .sw code{display:block;padding:7px 9px;font-size:11.5px;font-family:ui-monospace,Menlo,monospace;color:var(--dim)}
 .zonewrap{position:relative;display:inline-block;max-width:100%}
 .zonewrap img{display:block;max-width:100%;max-height:56vh;border-radius:8px}
+.zonewrap video{display:block;width:min(360px,31.5vh);max-width:100%;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#0b0b0c}
 .zone{position:absolute;background:rgba(216,255,62,.14);border:1px dashed rgba(216,255,62,.5)}
 .zone u{position:absolute;left:5px;top:3px;font-size:9.5px;color:#d8ff3e;text-decoration:none;font-weight:600;letter-spacing:.03em}
 @media (min-width:700px){ .grid{gap:12px} h1{font-size:23px} }
@@ -972,37 +973,75 @@ var ZONES = {
 };
 TOOLS.push({ id:"safezones", cat:"Extras", icon:"zones", name:"Safe zones",
   desc:"Check your text isn't hidden behind the app UI",
-  lead:"Preview a vertical post with each app's buttons and caption area shaded, so you can see whether your text survives.",
+  lead:"Preview a vertical image or video with each app's buttons and caption area shaded, so you can see whether your text survives.",
   build:function(root){
-    var cur = "reels", imgEl = null, box = el("div"), file = null;
-    dropZone(root, { accept:"image/*", label:"Choose a vertical image", hint:"9:16 works best — anything else is fitted", onFile:function(f){ file=f; draw(); }});
-    segmented(root,"Platform",Object.keys(ZONES).map(function(k){ return { label:ZONES[k].n.replace("Instagram ",""), value:k }; }),"reels",function(v){ cur=v; draw(); });
+    var cur = "reels", box = el("div"), file = null, url = null, wrap = null, note = null, vid = null;
+    dropZone(root, { accept:"image/*,video/*", label:"Choose a vertical image or video", hint:"9:16 works best — anything else is fitted. JPG, PNG, MP4 or MOV", onFile:function(f){ file=f; load(); }});
+    segmented(root,"Platform",Object.keys(ZONES).map(function(k){ return { label:ZONES[k].n.replace("Instagram ",""), value:k }; }),"reels",function(v){ cur=v; paint(); });
     root.appendChild(box);
-    function draw(){
-      if (!file) return;
-      loadBlobImage(file).then(function(img){
-        var w = 360, h = 640;
-        var c = newCanvas(w,h), x = c.getContext("2d");
-        x.fillStyle = "#0b0b0c"; x.fillRect(0,0,w,h);
-        drawCover(x,img,w,h,0.5,0.5);
-        box.innerHTML = "";
-        var wrap = el("div","zonewrap");
-        var im = new Image(); im.src = c.toDataURL("image/jpeg",0.9);
-        wrap.appendChild(im);
-        var z = ZONES[cur];
-        [["top",z.top,"Header"],["bottom",z.bottom,"Caption & controls"],["right",z.right,"Buttons"]].forEach(function(p){
-          if (!p[1]) return;
-          var d = el("div","zone");
-          if (p[0]==="top"){ d.style.cssText += "left:0;right:0;top:0;height:"+p[1]+"%"; }
-          if (p[0]==="bottom"){ d.style.cssText += "left:0;right:0;bottom:0;height:"+p[1]+"%"; }
-          if (p[0]==="right"){ d.style.cssText += "right:0;top:"+z.top+"%;bottom:"+z.bottom+"%;width:"+p[1]+"%"; }
-          d.innerHTML = "<u>"+p[2]+"</u>";
-          wrap.appendChild(d);
-        });
-        box.appendChild(wrap);
-        box.appendChild(el("div","note","Shaded areas are roughly where "+ZONES[cur].n+" draws its own interface. Keep faces, logos and text out of them. Percentages are approximate and shift between app versions and phone sizes."));
+    function isVideo(f){ return (f.type && f.type.indexOf("video")===0) || /\.(mp4|mov|m4v|webm)$/i.test(f.name||""); }
+    function fmtTime(v){ var m = Math.floor(v/60), s2 = (v%60).toFixed(2); return m+":"+(s2<10?"0":"")+s2; }
+    function paint(){
+      if (!wrap) return;
+      wrap.querySelectorAll(".zone").forEach(function(d){ d.parentNode.removeChild(d); });
+      var z = ZONES[cur];
+      [["top",z.top,"Header"],["bottom",z.bottom,"Caption & controls"],["right",z.right,"Buttons"]].forEach(function(p){
+        if (!p[1]) return;
+        var d = el("div","zone");
+        if (p[0]==="top"){ d.style.cssText += "left:0;right:0;top:0;height:"+p[1]+"%"; }
+        if (p[0]==="bottom"){ d.style.cssText += "left:0;right:0;bottom:0;height:"+p[1]+"%"; }
+        if (p[0]==="right"){ d.style.cssText += "right:0;top:"+z.top+"%;bottom:"+z.bottom+"%;width:"+p[1]+"%"; }
+        d.innerHTML = "<u>"+p[2]+"</u>";
+        wrap.appendChild(d);
       });
+      note.textContent = "Shaded areas are roughly where "+ZONES[cur].n+" draws its own interface. Keep faces, logos and text out of them. Percentages are approximate and shift between app versions and phone sizes.";
     }
+    function load(){
+      if (!file) return;
+      if (vid){ vid.pause(); vid.removeAttribute("src"); vid = null; }
+      if (url){ URL.revokeObjectURL(url); url = null; }
+      box.innerHTML = "";
+      wrap = el("div","zonewrap"); note = el("div","note");
+      if (isVideo(file)){
+        url = URL.createObjectURL(file);
+        vid = document.createElement("video");
+        vid.muted = true; vid.loop = true; vid.playsInline = true; vid.setAttribute("playsinline",""); vid.setAttribute("muted","");
+        vid.preload = "metadata"; vid.src = url;
+        var v = vid;
+        wrap.appendChild(vid);
+        box.appendChild(wrap);
+        var controls = el("div");
+        var row = el("div","row");
+        var play = el("button","btn ghost","Pause"); play.type = "button";
+        play.addEventListener("click", function(){ if (v.paused) v.play().catch(function(){}); else v.pause(); });
+        vid.addEventListener("play", function(){ play.textContent = "Pause"; });
+        vid.addEventListener("pause", function(){ play.textContent = "Play"; });
+        row.appendChild(play); controls.appendChild(row);
+        vid.addEventListener("loadedmetadata", function(){
+          var scrub = slider(controls,"Position",0,Math.max(0.1,v.duration),0.01,0,fmtTime,function(t){ v.pause(); v.currentTime = t; });
+          var lbl = scrub.parentNode.querySelector(".fval");
+          v.addEventListener("timeupdate", function(){ scrub.value = v.currentTime; if (lbl) lbl.textContent = fmtTime(v.currentTime); });
+        });
+        vid.addEventListener("error", function(){ toast("Couldn't play that video — try an MP4 or MOV"); });
+        box.appendChild(controls);
+        box.appendChild(note);
+        paint();
+        vid.play().catch(function(){});
+      } else {
+        loadBlobImage(file).then(function(img){
+          var w = 360, h = 640;
+          var c = newCanvas(w,h), x = c.getContext("2d");
+          x.fillStyle = "#0b0b0c"; x.fillRect(0,0,w,h);
+          drawCover(x,img,w,h,0.5,0.5);
+          var im = new Image(); im.src = c.toDataURL("image/jpeg",0.9);
+          wrap.appendChild(im);
+          box.appendChild(wrap);
+          box.appendChild(note);
+          paint();
+        }).catch(function(){ toast("Couldn't read that image"); });
+      }
+    }
+    viewCleanups.push(function(){ if (vid) vid.pause(); if (url) URL.revokeObjectURL(url); });
   }});
 
 /* ========== shell ========== */

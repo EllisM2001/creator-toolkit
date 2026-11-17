@@ -1,4 +1,4 @@
-var CACHE = "toolkit-v2";
+var CACHE = "toolkit-v3";
 var ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png"];
 
 self.addEventListener("install", function(e){
