@@ -137,6 +137,8 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .shot{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px;text-align:center}
 .shot img,.shot canvas,.shot video{max-width:100%;max-height:50vh;border-radius:8px;display:block;margin:0 auto}
 .blurcanvas{touch-action:none;cursor:crosshair;max-height:64vh!important}
+.fixcanvas{touch-action:none;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.shot.cutout canvas{background-image:conic-gradient(#2a2a2e 25%,#1a1a1d 0 50%,#2a2a2e 0 75%,#1a1a1d 0);background-size:20px 20px}
 .checker{background-image:linear-gradient(45deg,#161618 25%,transparent 25%),linear-gradient(-45deg,#161618 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#161618 75%),linear-gradient(-45deg,transparent 75%,#161618 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
 .stats{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
 .stat{flex:1;min-width:88px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 11px}
@@ -467,6 +469,8 @@ function drawContain(ctx, img, w, h, bg){
 
 /* ========== icons ========== */
 var ICONS = {
+  scissors:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 9.12 12 13"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   blur:'<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="m1 1 22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>',
   shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   compress:'<path d="M4 9V5h4"/><path d="M20 9V5h-4"/><path d="M4 15v4h4"/><path d="M20 15v4h-4"/><path d="M9 12h6"/>',
@@ -2355,6 +2359,203 @@ TOOLS.push({ id:"metastrip", cat:"Image", icon:"shield", name:"Metadata strip",
       });
     }});
     root.appendChild(out);
+  }});
+
+/* --- 17. Quick fix --- */
+function qfSigned(v){ return (v > 0 ? "+" : "") + v; }
+/* Applies straighten + colour corrections to a source canvas/image and returns a new canvas of the same size. */
+function qfProcess(src, W, H, p){
+  var c = newCanvas(W, H), x = c.getContext("2d");
+  var a = (p.angle || 0) * Math.PI / 180;
+  if (a){
+    var s = Math.abs(Math.cos(a)) + Math.abs(Math.sin(a)) * Math.max(W / H, H / W);
+    x.save(); x.translate(W/2, H/2); x.rotate(a); x.scale(s, s); x.drawImage(src, -W/2, -H/2, W, H); x.restore();
+  } else x.drawImage(src, 0, 0, W, H);
+  if (!p.bright && !p.contrast && !p.warmth && !p.sat && !p.auto) return c;
+  var id = x.getImageData(0, 0, W, H), d = id.data, n = d.length;
+  var lo = [0,0,0], hi = [255,255,255];
+  if (p.auto){
+    var hist = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
+    for (var i = 0; i < n; i += 4){ hist[0][d[i]]++; hist[1][d[i+1]]++; hist[2][d[i+2]]++; }
+    var total = n / 4, cut = total * 0.005;
+    for (var ch = 0; ch < 3; ch++){
+      var acc = 0, v;
+      for (v = 0; v < 256; v++){ acc += hist[ch][v]; if (acc > cut){ lo[ch] = v; break; } }
+      acc = 0;
+      for (v = 255; v >= 0; v--){ acc += hist[ch][v]; if (acc > cut){ hi[ch] = v; break; } }
+      if (hi[ch] - lo[ch] < 32){ lo[ch] = 0; hi[ch] = 255; }
+    }
+  }
+  var cf = (259 * (p.contrast * 1.27 + 255)) / (255 * (259 - p.contrast * 1.27));
+  var bshift = p.bright * 0.8, warm = p.warmth * 0.3;
+  var luts = [];
+  for (ch = 0; ch < 3; ch++){
+    var lut = new Uint8ClampedArray(256), wshift = ch === 0 ? warm : ch === 2 ? -warm : 0;
+    for (v = 0; v < 256; v++){
+      var t = (v - lo[ch]) * 255 / (hi[ch] - lo[ch]);
+      t = cf * (t - 128) + 128 + bshift + wshift;
+      lut[v] = t;
+    }
+    luts.push(lut);
+  }
+  var sf = 1 + p.sat / 100;
+  for (i = 0; i < n; i += 4){
+    var r = luts[0][d[i]], g = luts[1][d[i+1]], b = luts[2][d[i+2]];
+    if (sf !== 1){ var gray = 0.299*r + 0.587*g + 0.114*b; r = gray + (r - gray) * sf; g = gray + (g - gray) * sf; b = gray + (b - gray) * sf; }
+    d[i] = r; d[i+1] = g; d[i+2] = b;
+  }
+  x.putImageData(id, 0, 0);
+  return c;
+}
+TOOLS.push({ id:"quickfix", cat:"Image", icon:"sun", name:"Quick fix",
+  desc:"Brightness, contrast, warmth, straighten, auto-levels",
+  lead:"Small corrections for photos that are nearly right. Press and hold the preview to compare with the original.",
+  build:function(root){
+    var img = null, file = null, prev = null, fmt = "image/jpeg", timer = null;
+    var p = { bright:0, contrast:0, warmth:0, sat:0, angle:0, auto:false };
+    var out = el("div"); out.style.display = "none";
+    var shot = el("div","shot"), canvas = document.createElement("canvas"); canvas.className = "fixcanvas"; shot.appendChild(canvas);
+    dropZone(root, { accept:"image/*", label:"Choose a photo", hint:"JPG, PNG or WebP — paste works too", onFile:function(f){
+      loadBlobImage(f).then(function(im){
+        img = im; file = f;
+        var W = im.naturalWidth || im.width, H = im.naturalHeight || im.height, k = Math.min(1, 1100 / Math.max(W, H));
+        prev = newCanvas(W * k, H * k); prev.getContext("2d").drawImage(im, 0, 0, prev.width, prev.height);
+        out.style.display = ""; render();
+      }).catch(function(){ toast("Couldn't read that image"); });
+    }});
+    out.appendChild(shot);
+    out.appendChild(el("div","note","Press and hold the picture to see the original."));
+    var sliders = [];
+    segmented(out, "Auto-levels", [{label:"Off",value:"off"},{label:"On",value:"on"}], "off", function(v){ p.auto = v === "on"; render(); });
+    sliders.push(slider(out, "Brightness", -100, 100, 1, 0, qfSigned, function(v){ p.bright = v; render(); }));
+    sliders.push(slider(out, "Contrast", -100, 100, 1, 0, qfSigned, function(v){ p.contrast = v; render(); }));
+    sliders.push(slider(out, "Warmth", -100, 100, 1, 0, qfSigned, function(v){ p.warmth = v; render(); }));
+    sliders.push(slider(out, "Saturation", -100, 100, 1, 0, qfSigned, function(v){ p.sat = v; render(); }));
+    sliders.push(slider(out, "Straighten", -15, 15, 0.1, 0, function(v){ return (v > 0 ? "+" : "") + (+v).toFixed(1) + "°"; }, function(v){ p.angle = v; render(); }));
+    var resetBtn = button(out, "Reset", "ghost", function(){
+      p = { bright:0, contrast:0, warmth:0, sat:0, angle:0, auto:false };
+      sliders.forEach(function(r){ r.value = 0; r.dispatchEvent(new Event("input")); });
+      out.querySelectorAll(".seg button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.textContent === "Off" || b.textContent === "JPG (smaller)")); });
+    });
+    resetBtn.style.marginTop = "12px";
+    segmented(out, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], fmt, function(v){ fmt = v; });
+    var row = el("div","row"); row.style.marginTop = "10px";
+    var save = el("button","btn","Save photo"); save.type = "button";
+    save.addEventListener("click", function(){ full().then(function(c){ return canvasToBlob(c, fmt, 0.92); }).then(function(b){ saveFile(baseName(file.name) + "-fixed." + extFor(fmt), b); }); });
+    var copy = el("button","btn ghost","Copy"); copy.type = "button";
+    copy.addEventListener("click", function(){ full().then(function(c){ return canvasToBlob(c, fmt, 0.92); }).then(copyImage); });
+    row.appendChild(save); row.appendChild(copy); out.appendChild(row);
+    out.appendChild(el("div","note","Saves at the photo's full size. Straighten zooms in slightly so no blank corners show."));
+    root.appendChild(out);
+    function full(){ return new Promise(function(res){ setTimeout(function(){ res(qfProcess(img, img.naturalWidth || img.width, img.naturalHeight || img.height, p)); }, 20); }); }
+    function show(c){ canvas.width = c.width; canvas.height = c.height; canvas.getContext("2d").drawImage(c, 0, 0); }
+    function render(){
+      if (!prev) return;
+      clearTimeout(timer);
+      timer = setTimeout(function(){ show(qfProcess(prev, prev.width, prev.height, p)); }, 30);
+    }
+    var holding = false;
+    canvas.addEventListener("pointerdown", function(e){ if (!prev) return; e.preventDefault(); holding = true; show(prev); });
+    function release(){ if (!holding) return; holding = false; render(); }
+    canvas.addEventListener("pointerup", release); canvas.addEventListener("pointercancel", release); canvas.addEventListener("pointerleave", release);
+    canvas.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  }});
+
+/* --- 18. Background remover --- */
+var BG_LIB = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js";
+var BG_MODELS = {
+  /* Portrait matting model (Apache-2.0). Larger general-purpose models (BiRefNet) are 115-224 MB and fail on WebGPU in current runtimes, so only this one ships. */
+  people: { id:"Xenova/modnet", label:"People (26 MB)", dtype:"fp32", input:"input", out:"output", sigmoid:false }
+};
+var bgLoaded = {};
+function bgLoad(key, onProgress){
+  if (bgLoaded[key]) return bgLoaded[key];
+  var m = BG_MODELS[key];
+  bgLoaded[key] = import(BG_LIB).then(function(tf){
+    var opts = { dtype:m.dtype, progress_callback:onProgress };
+    if (m.gpu && navigator.gpu) opts.device = "webgpu";
+    return Promise.all([tf.AutoModel.from_pretrained(m.id, opts), tf.AutoProcessor.from_pretrained(m.id)]).then(function(r){ return { tf:tf, model:r[0], processor:r[1] }; });
+  }).catch(function(e){ delete bgLoaded[key]; throw e; });
+  return bgLoaded[key];
+}
+/* Runs the model and returns a canvas holding the alpha matte (white = keep) at the given size. */
+function bgMatte(key, file, W, H, onProgress){
+  var m = BG_MODELS[key];
+  return bgLoad(key, onProgress).then(function(L){
+    return L.tf.RawImage.fromBlob(file).then(function(raw){
+      return L.processor(raw).then(function(inputs){
+        var feed = {}; feed[m.input] = inputs.pixel_values;
+        return L.model(feed).then(function(res){
+          var t = res[m.out][0]; if (m.sigmoid) t = t.sigmoid();
+          var mask = L.tf.RawImage.fromTensor(t.mul(255).to("uint8"));
+          var mc = newCanvas(mask.width, mask.height), id = mc.getContext("2d").createImageData(mask.width, mask.height), d = id.data, ch = mask.channels, src = mask.data;
+          for (var i = 0, j = 0; i < d.length; i += 4, j += ch){ d[i] = d[i+1] = d[i+2] = src[j]; d[i+3] = 255; }
+          mc.getContext("2d").putImageData(id, 0, 0);
+          var outc = newCanvas(W, H); outc.getContext("2d").drawImage(mc, 0, 0, W, H);
+          return outc;
+        });
+      });
+    });
+  });
+}
+TOOLS.push({ id:"bgremove", cat:"Image", icon:"scissors", name:"Background remover",
+  desc:"Cut a person out of a photo, on this device",
+  lead:"Removes the background with a small on-device model. The model downloads once (about 26 MB) and then works offline.",
+  build:function(root){
+    var img = null, file = null, matte = null, key = "people", bg = "transparent", colour = "#d8ff3e", outline = false, cutout = null;
+    var out = el("div"); out.style.display = "none";
+    var status = el("div","note"), shot = el("div","shot cutout"), canvas = document.createElement("canvas"); shot.appendChild(canvas);
+    dropZone(root, { accept:"image/*", label:"Choose a photo", hint:"Works best with a clear subject — JPG, PNG or WebP", onFile:function(f){
+      loadBlobImage(f).then(function(im){ img = im; file = f; matte = null; out.style.display = ""; run(); }).catch(function(){ toast("Couldn't read that image"); });
+    }});
+    root.appendChild(status);
+    out.appendChild(shot);
+    segmented(out, "Background", [{label:"Transparent",value:"transparent"},{label:"White",value:"white"},{label:"Black",value:"black"},{label:"Colour",value:"colour"}], bg, function(v){ bg = v; compose(); });
+    var cf = field(out, "Colour"); var ci = document.createElement("input"); ci.type = "color"; ci.value = colour; ci.addEventListener("input", function(){ colour = ci.value; if (bg === "colour") compose(); }); cf.appendChild(ci);
+    segmented(out, "Sticker outline", [{label:"Off",value:"off"},{label:"On",value:"on"}], "off", function(v){ outline = v === "on"; compose(); });
+    var stats = el("div"); out.appendChild(stats);
+    var row = el("div","row"); row.style.marginTop = "10px";
+    var save = el("button","btn","Save PNG"); save.type = "button";
+    save.addEventListener("click", function(){ if (!cutout) return; var png = bg === "transparent"; canvasToBlob(canvas, png ? "image/png" : "image/jpeg", 0.92).then(function(b){ saveFile(baseName(file.name) + "-cutout." + (png ? "png" : "jpg"), b); }); });
+    var copy = el("button","btn ghost","Copy"); copy.type = "button";
+    copy.addEventListener("click", function(){ if (!cutout) return; canvasToBlob(canvas, "image/png").then(copyImage); });
+    row.appendChild(save); row.appendChild(copy); out.appendChild(row);
+    out.appendChild(el("div","note","Transparent saves as PNG; a solid background saves as JPG. The model is tuned for people, so products and objects may come out rough."));
+    root.appendChild(out);
+
+    function run(){
+      var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+      status.textContent = bgLoaded[key] ? "Working…" : "Downloading the model (one time)…";
+      out.style.opacity = ".5";
+      bgMatte(key, file, W, H, function(p){ if (p && p.status === "progress" && p.total) status.textContent = "Downloading the model (one time)… " + Math.round(p.loaded / p.total * 100) + "%"; })
+        .then(function(mc){ matte = mc; status.textContent = ""; out.style.opacity = ""; compose(); })
+        .catch(function(e){ out.style.opacity = ""; status.textContent = "Couldn't run the model (" + (e && e.message ? String(e.message).slice(0, 120) : e) + "). The first use needs a connection to download it; try again."; });
+    }
+    function compose(){
+      if (!img || !matte) return;
+      var W = matte.width, H = matte.height;
+      /* cut-out: photo with the matte as alpha */
+      cutout = newCanvas(W, H); var cx = cutout.getContext("2d");
+      cx.drawImage(img, 0, 0, W, H);
+      cx.globalCompositeOperation = "destination-in"; cx.drawImage(lumToAlpha(matte), 0, 0); cx.globalCompositeOperation = "source-over";
+      canvas.width = W; canvas.height = H; var x = canvas.getContext("2d");
+      if (bg !== "transparent"){ x.fillStyle = bg === "white" ? "#fff" : bg === "black" ? "#000" : colour; x.fillRect(0, 0, W, H); }
+      if (outline){
+        var r = Math.max(6, Math.round(Math.max(W, H) * 0.012)), oc = newCanvas(W, H), ox = oc.getContext("2d");
+        for (var a = 0; a < 24; a++){ ox.drawImage(cutout, Math.cos(a * Math.PI / 12) * r, Math.sin(a * Math.PI / 12) * r); }
+        ox.globalCompositeOperation = "source-in"; ox.fillStyle = "#fff"; ox.fillRect(0, 0, W, H);
+        x.drawImage(oc, 0, 0);
+      }
+      x.drawImage(cutout, 0, 0);
+      save.textContent = bg === "transparent" ? "Save PNG" : "Save JPG";
+      stats.innerHTML = ""; statRow(stats, [{k:"Size", v:W + "×" + H},{k:"Edges", v:outline ? "Sticker outline" : "Soft"}]);
+    }
+    /* turns a grey matte (white = keep) into an alpha mask canvas */
+    function lumToAlpha(mc){
+      var c = newCanvas(mc.width, mc.height), x = c.getContext("2d"), id = mc.getContext("2d").getImageData(0, 0, mc.width, mc.height), d = id.data;
+      for (var i = 0; i < d.length; i += 4){ d[i+3] = d[i]; d[i] = d[i+1] = d[i+2] = 0; }
+      x.putImageData(id, 0, 0); return c;
+    }
   }});
 
 /* ========== shell ========== */
