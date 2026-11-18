@@ -136,6 +136,7 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .result{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
 .shot{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px;text-align:center}
 .shot img,.shot canvas,.shot video{max-width:100%;max-height:50vh;border-radius:8px;display:block;margin:0 auto}
+.blurcanvas{touch-action:none;cursor:crosshair;max-height:64vh!important}
 .checker{background-image:linear-gradient(45deg,#161618 25%,transparent 25%),linear-gradient(-45deg,#161618 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#161618 75%),linear-gradient(-45deg,transparent 75%,#161618 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
 .stats{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
 .stat{flex:1;min-width:88px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 11px}
@@ -457,6 +458,8 @@ function drawContain(ctx, img, w, h, bg){
 
 /* ========== icons ========== */
 var ICONS = {
+  blur:'<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="m1 1 22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   compress:'<path d="M4 9V5h4"/><path d="M20 9V5h-4"/><path d="M4 15v4h4"/><path d="M20 15v4h-4"/><path d="M9 12h6"/>',
   resize:'<rect x="3" y="3" width="12" height="12" rx="2"/><path d="M15 9h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-4"/>',
   crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
@@ -1860,6 +1863,271 @@ TOOLS.unshift({ id:"postmaker", cat:"Image", icon:"post", name:"Post maker",
   lead:"Drop a photo in, write the headline, export at full size. Open the designer to lay out a template exactly how it should look and save it for everyone.",
   build:function(root){ postMaker(root); }
 });
+
+/* --- 15. Blur & pixelate --- */
+TOOLS.push({ id:"blur", cat:"Image", icon:"blur", name:"Blur & pixelate",
+  desc:"Hide faces, plates, names and numbers before posting",
+  lead:"Drag a box over anything that shouldn't be seen. The effect is baked into the pixels when you save, so nothing underneath can be recovered.",
+  build:function(root){
+    var img = null, file = null, regions = [], mode = "pixelate", shape = "rect", strength = 50, fmt = "image/jpeg";
+    var out = el("div"), shot = el("div","shot"), canvas = document.createElement("canvas"), base = null, stats = el("div");
+    canvas.className = "blurcanvas";
+    shot.appendChild(canvas);
+    dropZone(root, { accept:"image/*", label:"Choose an image", hint:"Screenshots or photos — JPG, PNG or WebP. Paste works too", onFile:function(f){
+      loadBlobImage(f).then(function(im){ img = im; file = f; regions = []; out.style.display = ""; rebuild(); draw(); }).catch(function(){ toast("Couldn't read that image"); });
+    }});
+    out.style.display = "none";
+    segmented(out, "Effect", [{label:"Pixelate",value:"pixelate"},{label:"Blur",value:"blur"}], mode, function(v){ mode = v; });
+    segmented(out, "Shape", [{label:"Box",value:"rect"},{label:"Oval",value:"ellipse"}], shape, function(v){ shape = v; });
+    slider(out, "Strength", 10, 100, 1, strength, function(v){ return v + "%"; }, function(v){ strength = v; });
+    out.appendChild(shot);
+    out.appendChild(el("div","note","Drag on the picture to cover an area. Each drag adds another area using the effect, shape and strength set above."));
+    var row = el("div","row"); row.style.marginTop = "10px";
+    var undo = el("button","btn ghost","Undo last"); undo.type = "button"; undo.addEventListener("click", function(){ regions.pop(); rebuild(); draw(); });
+    var clear = el("button","btn ghost","Clear all"); clear.type = "button"; clear.addEventListener("click", function(){ regions = []; rebuild(); draw(); });
+    row.appendChild(undo); row.appendChild(clear); out.appendChild(row);
+    out.appendChild(stats);
+    segmented(out, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], fmt, function(v){ fmt = v; });
+    var row2 = el("div","row"); row2.style.marginTop = "10px";
+    var save = el("button","btn","Save image"); save.type = "button";
+    save.addEventListener("click", function(){ if (!regions.length) { toast("Drag over an area first"); return; } canvasToBlob(canvas, fmt, 0.92).then(function(b){ saveFile(baseName(file.name) + "-hidden." + extFor(fmt), b); }); });
+    var copy = el("button","btn ghost","Copy"); copy.type = "button";
+    copy.addEventListener("click", function(){ canvasToBlob(canvas, fmt, 0.92).then(copyImage); });
+    row2.appendChild(save); row2.appendChild(copy); out.appendChild(row2);
+    out.appendChild(el("div","note","Pixelate is the safer choice for text and faces: it throws the detail away. On iPhone, press and hold the picture to save it straight to Photos."));
+    root.appendChild(out);
+
+    function applyRegion(ctx, src, r){
+      var W = src.width, H = src.height;
+      var x = Math.max(0, Math.round(Math.min(r.x, r.x + r.w))), y = Math.max(0, Math.round(Math.min(r.y, r.y + r.h)));
+      var w = Math.min(W - x, Math.round(Math.abs(r.w))), h = Math.min(H - y, Math.round(Math.abs(r.h)));
+      if (w < 2 || h < 2) return;
+      var cut = newCanvas(w, h); cut.getContext("2d").drawImage(src, x, y, w, h, 0, 0, w, h);
+      var fx = newCanvas(w, h), fctx = fx.getContext("2d"), k = r.strength / 100;
+      if (r.mode === "pixelate"){
+        var block = Math.max(4, Math.round(Math.min(w, h) * (0.06 + 0.34 * k)));
+        var sw = Math.max(1, Math.round(w / block)), sh = Math.max(1, Math.round(h / block));
+        var tiny = newCanvas(sw, sh); tiny.getContext("2d").drawImage(cut, 0, 0, sw, sh);
+        fctx.imageSmoothingEnabled = false; fctx.drawImage(tiny, 0, 0, sw, sh, 0, 0, w, h);
+      } else {
+        /* Halve the region several times, then double it back: each step averages pixels properly, so the blur is strong and even
+           on every browser without canvas filters. Done twice to smooth out any blockiness. */
+        var steps = Math.round(2 + 5 * k), cur = cut;
+        for (var round = 0; round < 2; round++){
+          var cw = w, ch = h, chain = [];
+          for (var i = 0; i < steps && Math.min(cw, ch) > 2; i++){
+            var nw = Math.max(1, Math.round(cw / 2)), nh = Math.max(1, Math.round(ch / 2));
+            var small = newCanvas(nw, nh); small.getContext("2d").drawImage(cur, 0, 0, nw, nh);
+            chain.push([cw, ch]); cur = small; cw = nw; ch = nh;
+          }
+          while (chain.length){ var d = chain.pop(); var big = newCanvas(d[0], d[1]); big.getContext("2d").drawImage(cur, 0, 0, d[0], d[1]); cur = big; }
+        }
+        fctx.drawImage(cur, 0, 0);
+      }
+      ctx.save();
+      if (r.shape === "ellipse"){ ctx.beginPath(); ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI*2); ctx.clip(); }
+      ctx.drawImage(fx, x, y);
+      ctx.restore();
+    }
+    /* base = the picture with every committed area applied; redrawn only when the list changes */
+    function rebuild(){
+      if (!img) return;
+      base = newCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height);
+      var ctx = base.getContext("2d"); ctx.drawImage(img, 0, 0);
+      regions.forEach(function(r){ applyRegion(ctx, base, r); });
+    }
+    function draw(preview){
+      if (!base) return;
+      canvas.width = base.width; canvas.height = base.height;
+      var ctx = canvas.getContext("2d"); ctx.drawImage(base, 0, 0);
+      if (preview){
+        ctx.save(); ctx.strokeStyle = "#d8ff3e"; ctx.lineWidth = Math.max(2, canvas.width / 400); ctx.setLineDash([12, 8]);
+        if (preview.shape === "ellipse"){ ctx.beginPath(); ctx.ellipse(preview.x + preview.w/2, preview.y + preview.h/2, Math.abs(preview.w/2), Math.abs(preview.h/2), 0, 0, Math.PI*2); ctx.stroke(); }
+        else ctx.strokeRect(preview.x, preview.y, preview.w, preview.h);
+        ctx.restore();
+      }
+      stats.innerHTML = ""; statRow(stats, [{k:"Areas hidden", v:regions.length},{k:"Image", v:canvas.width + "×" + canvas.height}]);
+    }
+    var drag = null;
+    function pos(e){ var b = canvas.getBoundingClientRect(); return { x:(e.clientX - b.left) * canvas.width / b.width, y:(e.clientY - b.top) * canvas.height / b.height }; }
+    canvas.addEventListener("pointerdown", function(e){ if (!base) return; e.preventDefault(); try { canvas.setPointerCapture(e.pointerId); } catch(err){} var p = pos(e); drag = { x:p.x, y:p.y, w:0, h:0, mode:mode, shape:shape, strength:strength }; });
+    canvas.addEventListener("pointermove", function(e){ if (!drag) return; var p = pos(e); drag.w = p.x - drag.x; drag.h = p.y - drag.y; draw(drag); });
+    function endDrag(){ if (!drag) return; var r = drag; drag = null; if (Math.abs(r.w) > 3 && Math.abs(r.h) > 3){ regions.push(r); rebuild(); } draw(); }
+    canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+  }});
+
+/* --- 16. Metadata strip --- */
+/* JPEG: list the segments before the image data. */
+function jpegSegments(u8){
+  var i = 2, segs = [];
+  while (i + 4 <= u8.length && u8[i] === 0xFF){
+    var m = u8[i+1];
+    if (m === 0xFF){ i++; continue; }
+    if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)){ i += 2; continue; }
+    var len = (u8[i+2] << 8) | u8[i+3];
+    segs.push({ marker:m, start:i, end:i + 2 + len });
+    if (m === 0xDA) break;
+    i += 2 + len;
+  }
+  return segs;
+}
+function segTag(u8, s, len){ var t = ""; for (var i = s.start + 4; i < Math.min(s.end, s.start + 4 + len); i++){ var c = u8[i]; if (c < 32 || c > 126) break; t += String.fromCharCode(c); } return t; }
+function parseExif(u8, s){
+  var out = { tags:{}, gps:false, gpsPos:null, orientation:1 };
+  try {
+    var t = s.start + 4 + 6, end = s.end;
+    var le = u8[t] === 0x49, dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    var u16 = function(p){ return dv.getUint16(p, le); }, u32 = function(p){ return dv.getUint32(p, le); };
+    var ascii = function(vp, n){ var str = ""; for (var i = 0; i < n; i++){ var c = u8[vp+i]; if (!c) break; str += String.fromCharCode(c); } return str.trim(); };
+    var rat = function(vp){ return u32(vp) / (u32(vp+4) || 1); };
+    var SIZES = [0,1,1,2,4,8,1,1,2,4,8,4,8];
+    function ifd(p, fn){
+      if (p < t || p + 2 > end) return;
+      var n = u16(p); p += 2;
+      for (var i = 0; i < n && p + 12 <= end; i++, p += 12){
+        var tag = u16(p), type = u16(p+2), cnt = u32(p+4), total = (SIZES[type] || 1) * cnt;
+        var vp = total > 4 ? t + u32(p+8) : p + 8;
+        if (vp + total <= end) fn(tag, cnt, vp);
+      }
+    }
+    var exifPtr = 0, gpsPtr = 0;
+    ifd(t + u32(t+4), function(tag, cnt, vp){
+      if (tag === 0x010F) out.tags.make = ascii(vp, cnt);
+      if (tag === 0x0110) out.tags.model = ascii(vp, cnt);
+      if (tag === 0x0131) out.tags.software = ascii(vp, cnt);
+      if (tag === 0x0132) out.tags.date = ascii(vp, cnt);
+      if (tag === 0x0112) out.orientation = u16(vp);
+      if (tag === 0x8769) exifPtr = t + u32(vp);
+      if (tag === 0x8825) gpsPtr = t + u32(vp);
+    });
+    if (exifPtr) ifd(exifPtr, function(tag, cnt, vp){
+      if (tag === 0x9003) out.tags.taken = ascii(vp, cnt);
+      if (tag === 0xA431) out.tags.serial = ascii(vp, cnt);
+      if (tag === 0xA434) out.tags.lens = ascii(vp, cnt);
+    });
+    if (gpsPtr){
+      out.gps = true; var lat, lon, latRef = "N", lonRef = "E";
+      ifd(gpsPtr, function(tag, cnt, vp){
+        if (tag === 1) latRef = ascii(vp, cnt); if (tag === 3) lonRef = ascii(vp, cnt);
+        if (tag === 2 && cnt >= 3) lat = rat(vp) + rat(vp+8)/60 + rat(vp+16)/3600;
+        if (tag === 4 && cnt >= 3) lon = rat(vp) + rat(vp+8)/60 + rat(vp+16)/3600;
+      });
+      if (lat != null && lon != null) out.gpsPos = { lat: latRef === "S" ? -lat : lat, lon: lonRef === "W" ? -lon : lon };
+    }
+  } catch(e){}
+  return out;
+}
+/* Looks through a JPEG or PNG and reports what metadata it carries. */
+function scanMeta(u8, type){
+  var r = { kind:null, items:[], removable:0, orientation:1, trailing:0 };
+  if (u8.length > 3 && u8[0] === 0xFF && u8[1] === 0xD8){
+    r.kind = "jpeg";
+    var segs = jpegSegments(u8), sos = segs.filter(function(s){ return s.marker === 0xDA; })[0];
+    segs.forEach(function(s){
+      var tag = segTag(u8, s, 12);
+      if (s.marker === 0xE1 && tag.indexOf("Exif") === 0){
+        var ex = parseExif(u8, s); r.orientation = ex.orientation || 1;
+        if (ex.gps) r.items.push({ k:"GPS location", v: ex.gpsPos ? ex.gpsPos.lat.toFixed(4) + ", " + ex.gpsPos.lon.toFixed(4) : "present", bad:true });
+        if (ex.tags.make || ex.tags.model) r.items.push({ k:"Camera", v: [ex.tags.make, ex.tags.model].filter(Boolean).join(" ") });
+        if (ex.tags.taken || ex.tags.date) r.items.push({ k:"Taken", v: ex.tags.taken || ex.tags.date });
+        if (ex.tags.software) r.items.push({ k:"Software", v: ex.tags.software });
+        if (ex.tags.lens) r.items.push({ k:"Lens", v: ex.tags.lens });
+        if (ex.tags.serial) r.items.push({ k:"Camera serial number", v: ex.tags.serial, bad:true });
+        if (!ex.gps && !ex.tags.make && !ex.tags.model) r.items.push({ k:"EXIF block", v: fmtBytes(s.end - s.start) });
+        r.removable++;
+      } else if (s.marker === 0xE1 && tag.indexOf("http://ns.adobe.com/xap") === 0){ r.items.push({ k:"XMP data (editing history, IDs)", v: fmtBytes(s.end - s.start) }); r.removable++; }
+      else if (s.marker === 0xED){ r.items.push({ k:"Photoshop / IPTC block", v: fmtBytes(s.end - s.start) }); r.removable++; }
+      else if (s.marker === 0xFE){ r.items.push({ k:"Comment", v: segTag(u8, s, 60) || fmtBytes(s.end - s.start) }); r.removable++; }
+      else if (s.marker === 0xE2 && tag.indexOf("ICC_PROFILE") !== 0){ r.items.push({ k:"Multi-picture index", v: fmtBytes(s.end - s.start) }); r.removable++; }
+      else if (s.marker >= 0xE3 && s.marker <= 0xEF && s.marker !== 0xEE){ r.items.push({ k:"App segment " + (s.marker - 0xE0), v: fmtBytes(s.end - s.start) }); r.removable++; }
+    });
+    if (sos){
+      for (var p = sos.end; p + 1 < u8.length; p++){ if (u8[p] === 0xFF && u8[p+1] === 0xD9){ r.eoi = p + 2; break; } }
+      if (r.eoi && u8.length - r.eoi > 64){ r.trailing = u8.length - r.eoi; r.items.push({ k:"Hidden data after the image", v: fmtBytes(r.trailing) + " (e.g. live photo video, depth map)", bad:true }); r.removable++; }
+    }
+  } else if (u8.length > 8 && u8[0] === 0x89 && u8[1] === 0x50){
+    r.kind = "png";
+    var q = 8;
+    while (q + 8 <= u8.length){
+      var len = (u8[q] << 24 | u8[q+1] << 16 | u8[q+2] << 8 | u8[q+3]) >>> 0;
+      var ct = String.fromCharCode(u8[q+4], u8[q+5], u8[q+6], u8[q+7]);
+      if (ct === "tEXt" || ct === "zTXt" || ct === "iTXt" || ct === "eXIf" || ct === "tIME"){
+        var kw = ""; for (var i = q + 8; i < Math.min(q + 8 + len, q + 88); i++){ if (!u8[i]) break; kw += String.fromCharCode(u8[i]); }
+        r.items.push({ k: ct === "eXIf" ? "EXIF block" : ct === "tIME" ? "Last-modified time" : "Text: " + (kw || ct), v: fmtBytes(len) }); r.removable++;
+      }
+      if (ct === "IEND") break;
+      q += 12 + len;
+    }
+  } else r.kind = "other";
+  return r;
+}
+/* Rebuilds a JPEG or PNG without its metadata, byte for byte otherwise. */
+function stripBytes(u8, meta){
+  var parts = [];
+  if (meta.kind === "jpeg"){
+    parts.push(u8.subarray(0, 2));
+    jpegSegments(u8).forEach(function(s){
+      var m = s.marker, tag = segTag(u8, s, 12);
+      var keep = m === 0xE0 || m === 0xEE || (m === 0xE2 && tag.indexOf("ICC_PROFILE") === 0) || (m < 0xE0 || m > 0xEF) && m !== 0xFE;
+      if (m === 0xDA){ parts.push(u8.subarray(s.start, meta.eoi || u8.length)); return; }
+      if (keep) parts.push(u8.subarray(s.start, s.end));
+    });
+    return new Blob(parts, { type:"image/jpeg" });
+  }
+  parts.push(u8.subarray(0, 8));
+  var q = 8;
+  while (q + 8 <= u8.length){
+    var len = (u8[q] << 24 | u8[q+1] << 16 | u8[q+2] << 8 | u8[q+3]) >>> 0;
+    var ct = String.fromCharCode(u8[q+4], u8[q+5], u8[q+6], u8[q+7]);
+    if (!(ct === "tEXt" || ct === "zTXt" || ct === "iTXt" || ct === "eXIf" || ct === "tIME")) parts.push(u8.subarray(q, q + 12 + len));
+    if (ct === "IEND") break;
+    q += 12 + len;
+  }
+  return new Blob(parts, { type:"image/png" });
+}
+TOOLS.push({ id:"metastrip", cat:"Image", icon:"shield", name:"Metadata strip",
+  desc:"Remove location, camera and editing data from a photo",
+  lead:"See what a photo quietly carries — GPS location, camera, dates, editing history — and save a clean copy with it all removed.",
+  build:function(root){
+    var out = el("div");
+    dropZone(root, { accept:"image/*", label:"Choose a photo", hint:"JPG and PNG are cleaned without re-saving the pixels", onFile:function(f){
+      out.innerHTML = "";
+      f.arrayBuffer().then(function(buf){
+        var u8 = new Uint8Array(buf), meta = scanMeta(u8, f.type);
+        var found = el("div","result"); found.style.marginTop = "18px";
+        found.appendChild(el("div","flabel","<b>Found in this file</b>"));
+        if (meta.kind === "other") found.appendChild(el("div","note","This format can't be read for metadata here, so it will be re-saved as a JPG, which drops everything that isn't the picture."));
+        else if (!meta.items.length) found.appendChild(el("div","note","Nothing personal found — no location, camera or editing data. You can still save a clean copy."));
+        else {
+          var list = el("div","stats");
+          meta.items.forEach(function(it){ var d = el("div","stat"); d.innerHTML = '<div class="k">' + it.k + '</div><div class="v' + (it.bad ? '" style="color:#ff9a3e' : "") + '">' + it.v + "</div>"; list.appendChild(d); });
+          found.appendChild(list);
+        }
+        out.appendChild(found);
+        var method = meta.kind === "other" || (meta.kind === "jpeg" && meta.orientation !== 1) ? "reencode" : "lossless";
+        var res = el("div"); out.appendChild(res);
+        function cleaned(){
+          if (method === "lossless") return Promise.resolve(stripBytes(u8, meta));
+          return loadBlobImage(f).then(function(im){ var c = newCanvas(im.naturalWidth || im.width, im.naturalHeight || im.height); c.getContext("2d").drawImage(im, 0, 0); return canvasToBlob(c, meta.kind === "png" ? "image/png" : "image/jpeg", 0.95); });
+        }
+        cleaned().then(function(blob){
+          res.innerHTML = "";
+          statRow(res, [{k:"Before", v:fmtBytes(f.size)},{k:"After", v:fmtBytes(blob.size), good:true},{k:"Removed", v:fmtBytes(Math.max(0, f.size - blob.size))}]);
+          var row = el("div","row"); row.style.marginTop = "10px";
+          var ext = blob.type === "image/png" ? "png" : "jpg";
+          var b1 = el("button","btn","Save clean copy"); b1.type = "button"; b1.addEventListener("click", function(){ saveFile(baseName(f.name) + "-clean." + ext, blob); });
+          var b2 = el("button","btn ghost","Copy"); b2.type = "button"; b2.addEventListener("click", function(){ copyImage(blob); });
+          row.appendChild(b1); row.appendChild(b2); res.appendChild(row);
+          res.appendChild(el("div","note", method === "lossless"
+            ? "The picture itself is untouched: only the metadata segments were dropped, so quality is identical."
+            : (meta.kind === "jpeg" ? "This photo relies on a rotation flag, so it was re-saved the right way up at high quality rather than cut byte for byte." : "Re-saved as a new file at high quality.")
+          ));
+          var shot = el("div","shot"); shot.style.marginTop = "12px"; var im = new Image(); im.src = URL.createObjectURL(blob); shot.appendChild(im); res.appendChild(shot);
+        }).catch(function(){ toast("Couldn't process that file"); });
+      });
+    }});
+    root.appendChild(out);
+  }});
 
 /* ========== shell ========== */
 var viewCleanups = [];
