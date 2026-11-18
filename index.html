@@ -186,6 +186,15 @@ input[type=color]{width:46px;height:36px;padding:2px;background:var(--surface);b
 .pm-el[aria-pressed="true"]{background:var(--text);color:#000;border-color:var(--text);font-weight:600}
 .pm-sep{margin:18px 0 6px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--accent)}
 .pm-hint{color:var(--dim2);font-size:12px;margin-top:8px;text-align:center}
+.pm-slides{display:flex;gap:8px;overflow-x:auto;align-items:stretch;margin:0 calc(var(--pad) * -1);padding:2px var(--pad) 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pm-slides::-webkit-scrollbar{display:none}
+.pm-slide{flex:none;width:68px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;text-align:center;transition:.13s}
+.pm-slide:hover{border-color:var(--line2)}
+.pm-slide[aria-pressed="true"]{border-color:var(--accent);background:var(--surface2);box-shadow:0 0 0 1px var(--accent) inset}
+.pm-slide canvas{width:100%;height:auto;border-radius:6px;display:block;background:#111}
+.pm-slide span{display:block;font-size:10.5px;color:var(--dim2);margin-top:3px}
+.pm-slide.add{display:flex;flex-direction:column;align-items:center;justify-content:center;border-style:dashed;color:var(--dim)}
+.pm-slide.add b{font-size:22px;font-weight:500;line-height:1}
 @media (min-width:700px){ .grid{gap:12px} h1{font-size:23px} }
 </style>
 </head>
@@ -1110,6 +1119,9 @@ function pmText(key, label, o){
 }
 var PM_HEAD = { font:"vanguard", size:107, lh:0.956, ls:0.008, align:"center", x:21, y:1293, w:1038, anchor:"bottom", shadow:[0.6,4,30] };
 var PM_POP = { font:"poppins", size:85.3, lh:89, ls:0, color:"rgb(253,253,253)", shadow:[0.6,3.2,24], kw:"bold", anchor:"top" };
+/* Body copy on inner carousel slides: Poppins, left-aligned, as typed, no balancing (paragraphs read better ragged); the page bounds (minTop / 1310) decide when it shrinks. */
+var PM_BODY = { font:"poppins", size:48, lh:1.32, ls:0, align:"left", x:80, y:240, w:920, anchor:"top", color:"#fff", upper:false, shadow:[0,0,0], kw:"bold", maxLines:40, balance:false, area:true,
+  placeholder:"Write the slide copy here. Enter starts a new line, a blank line starts a new paragraph, and long copy shrinks to fit." };
 function fadeBlack2(){ return [{type:"fade",curve:"black",color:PM_BLACK,y:781,h:704},{type:"fade",curve:"black",color:PM_BLACK,y:748,h:704}]; }
 function fadeSoft(color){ return [{type:"fade",curve:"soft",color:color,y:332,h:1425}]; }
 
@@ -1140,6 +1152,23 @@ var PM_BUILTIN = [
       {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
   { id:"pubity-card", brand:"Pubity", name:"Screenshot card", page:"Canva page 17", bg:"rgb(253,253,253)", noPhoto:true,
     elements: [{type:"card",x:273,y:555,w:598,h:412,r:28,label:"Screenshot card"}] },
+  /* Inner carousel slides (slides 2+). Same look as the cover: black page, P + rule, Poppins body copy that shrinks to fit. */
+  { id:"pubity-text", brand:"Pubity", name:"Text page", page:"Carousel slide", inner:true, noPhoto:true,
+    elements: [
+      {type:"rule",y:150,label:"P + rule"},
+      pmText("headline","Slide copy",Object.assign({},PM_BODY,{anchor:"middle",y:720,minTop:240})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"pubity-title-text", brand:"Pubity", name:"Title + text", page:"Carousel slide", inner:true, noPhoto:true,
+    elements: [
+      {type:"rule",label:"P + rule"},
+      pmText("headline","Title",Object.assign({},PM_HEAD,{size:82,lh:0.95,align:"left",x:80,y:250,w:920,anchor:"top",maxLines:3,balance:false})),
+      pmText("body","Slide copy",Object.assign({},PM_BODY,{y:560,below:"headline",gap:48})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ] },
+  { id:"pubity-photo-caption", brand:"Pubity", name:"Photo + caption", page:"Carousel slide", inner:true,
+    elements: fadeBlack2().concat([
+      {type:"rule",label:"P + rule"},
+      pmText("headline","Caption",Object.assign({},PM_BODY,{size:46,lh:1.28,anchor:"bottom",y:1262,maxLines:6,shadow:[0.6,3,24],placeholder:"A line or two about the photo goes here."})),
+      {type:"swipe",x:120,y:59,optional:true,on:false,label:"SWIPE tag"} ]) },
   { id:"dads-left", brand:"@dads", name:"Left + TRENDING", page:"Canva pages 2–3",
     elements: fadeSoft(PM_BLUE).concat([
       {type:"pill",text:"TRENDING",x:37,y:890,label:"Pill"},
@@ -1209,6 +1238,30 @@ function pmDeleteCustom(id){
   PM_CUSTOM = PM_CUSTOM.filter(function(t){ return t.id !== id; });
 }
 function pmAllTemplates(){ return PM_CUSTOM.concat(PM_BUILTIN); }
+
+/* ---- the post draft (all slides) lives in localStorage so a reload doesn't lose it ---- */
+var PM_DRAFT = "pm_draft_v1";
+var PM_SLIDE_KEYS = ["text","keywords","size","offset","upper","on","zoom","fx","fy","zoom2","fx2","fy2","insetR","insetX","insetY","insetZoom"];
+var PM_TOUCH = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+/* Photos are stored as JPEG data URLs capped at 2160px on the long edge, which keeps a few slides under the localStorage quota. */
+function pmShrinkImage(img){
+  var sc = Math.min(1, 2160 / Math.max(img.width, img.height));
+  var c = newCanvas(Math.max(1, Math.round(img.width*sc)), Math.max(1, Math.round(img.height*sc)));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+function pmImageFrom(src){ return new Promise(function(res, rej){ var i = new Image(); i.onload = function(){ res(i); }; i.onerror = function(){ rej(new Error("bad image")); }; i.src = src; }); }
+function pmSaveDraft(post, withImages){
+  var d = { v:1, cur:post.cur, format:post.format, slides: post.slides.map(function(sl){
+    var o = { tpl: sl.tpl && sl.tpl.id };
+    PM_SLIDE_KEYS.forEach(function(k){ o[k] = sl[k]; });
+    if (withImages){ o.img = sl.imgSrc || null; o.img2 = sl.img2Src || null; o.inset = sl.insetSrc || null; }
+    return o;
+  }) };
+  localStorage.setItem(PM_DRAFT, JSON.stringify(d));
+}
+function pmLoadDraft(){ try { var d = JSON.parse(localStorage.getItem(PM_DRAFT) || "null"); return d && d.slides && d.slides.length ? d : null; } catch(e){ return null; } }
+function pmClearDraft(){ try { localStorage.removeItem(PM_DRAFT); } catch(e){} }
 
 /* ---- drawing ---- */
 function pmPlaceholder(w,h){
@@ -1305,7 +1358,7 @@ function pmBlock(ctx, e, text, opts, measureOnly){
     base = e.anchor === "bottom" ? e.y - blockH : e.anchor === "middle" ? e.y - blockH/2 : e.y;
     top = base + (opts.offset || 0);
     var tooWide = lines.some(function(l){ return pmLineWidth(ctx, l) > e.w + 0.5; });
-    var tooMany = (!hasBr && lines.length > maxLines) || lines.length > 8;
+    var tooMany = (!hasBr && lines.length > maxLines) || lines.length > Math.max(8, maxLines);
     var outside = base + blockH > 1350 - 40 || (e.anchor !== "top" && base < (e.minTop || 560));
     if ((tooWide || tooMany || outside) && size > floor && tries++ < 400) { size = Math.round((size - 0.5) * 10) / 10; continue; }
     break;
@@ -1420,7 +1473,7 @@ function pmBox(e, m){ /* bounding box used for selection outlines + drag */
   if (e.type === "overlay") return { x:e.x, y:e.y, w:e.w, h:e.h };
   return { x:0, y:0, w:0, h:0 };
 }
-/* The renderer. s = state (photos, text values, toggles, overrides). opts: placeholder, guides, select (element id to outline), images (overlay cache). */
+/* The renderer. s = state (photos, text values, toggles, overrides). opts: placeholder, guides, select (element id to outline), images (overlay cache), swipe (false hides SWIPE tags that aren't marked always-on). */
 function pmDraw(canvas, tpl, s, opts){
   opts = opts || {};
   var W = 1080, H = 1350;
@@ -1458,14 +1511,16 @@ function pmDraw(canvas, tpl, s, opts){
       case "rule": ruleEl = e; break; /* drawn after the headline is measured */
       case "text":
         text = textFor(e);
-        var m = pmBlock(ctx, e, text, textOpts(e), true);
+        var spec = e, hm = headMetrics || headPre;
+        if (e.below && hm) spec = Object.assign({}, e, { y: hm.bottom + (e.gap == null ? 40 : e.gap), anchor:"top" });
+        var m = pmBlock(ctx, spec, text, textOpts(e), true);
         if (e.key === "headline" && !headMetrics) headMetrics = m;
         if (ruleEl && e.key === "headline" && ruleEl.y == null){ pmRule(ctx, W, m.capTop - 40); boxes[ruleEl.id] = { x:40, y:m.capTop-60, w:1000, h:40 }; ruleEl = null; }
-        pmBlock(ctx, e, text, textOpts(e));
-        boxes[e.id] = pmBox(e, m); break;
+        pmBlock(ctx, spec, text, textOpts(e));
+        boxes[e.id] = pmBox(spec, m); break;
       case "pill": pmPill(ctx, e, (s.text && s.text["pill:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
       case "handle": pmHandle(ctx, e, (s.text && s.text["handle:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
-      case "swipe": pmSwipe(ctx, e.x, e.y); boxes[e.id] = pmBox(e); break;
+      case "swipe": if (e.always || opts.swipe !== false) pmSwipe(ctx, e.x, e.y); boxes[e.id] = pmBox(e); break; /* SWIPE only makes sense when there is something to swipe to */
     }
   });
   if (ruleEl){ pmRule(ctx, W, ruleEl.y != null ? ruleEl.y : 950); boxes[ruleEl.id] = { x:40, y:(ruleEl.y != null ? ruleEl.y : 950)-20, w:1000, h:40 }; }
@@ -1480,22 +1535,28 @@ function pmDraw(canvas, tpl, s, opts){
 
 /* ---- the tool ---- */
 function postMaker(root){
-  var s = {
-    tpl: null, img:null, img2:null, inset:null,
-    text:{}, keywords:"", size:{}, offset:0, upper:null, on:{}, guides:false,
-    zoom:1, fx:0.5, fy:0.5, zoom2:1, fx2:0.5, fy2:0.5,
-    insetR:0, insetX:null, insetY:null, insetZoom:1,
-    format:"image/jpeg"
-  };
+  /* A post is a list of slides. Every slide carries its own template, photos, text and settings; `s` is always the selected one. */
+  function newSlide(tpl){
+    return { tpl: tpl || null, img:null, img2:null, inset:null, imgSrc:null, img2Src:null, insetSrc:null,
+      text:{}, keywords:"", size:{}, offset:0, upper:null, on:{}, guides:false,
+      zoom:1, fx:0.5, fy:0.5, zoom2:1, fx2:0.5, fy2:0.5,
+      insetR:0, insetX:null, insetY:null, insetZoom:1 };
+  }
+  var post = { slides:[newSlide()], cur:0, format:"image/jpeg" };
+  var s = post.slides[0];
   var images = {}; /* overlay image cache by element id */
   var placeholder = pmPlaceholder(540, 675);
   var loading = el("div","note","Loading fonts and templates…");
   root.appendChild(loading);
-  Promise.all([pmLoadAssets(), pmLoadCustom()]).then(function(){ loading.remove(); s.tpl = pmAllTemplates()[0]; build(); }).catch(function(){ loading.remove(); s.tpl = pmAllTemplates()[0]; build(); });
+  function start(){ loading.remove(); restoreDraft().then(function(){ if (!s.tpl) s.tpl = pmAllTemplates()[0]; build(); }); }
+  Promise.all([pmLoadAssets(), pmLoadCustom()]).then(start).catch(start);
 
   var top, picker, stage, canvas, panel, timer, mode = "post", designer = null;
+  var stripBox, slideThumbs = [], tplThumbs = {}, draftT, draftWarned = false, pending = null;
 
   function build(){
+    stripBox = el("div"); root.appendChild(stripBox);
+    renderStrip();
     top = el("div"); root.appendChild(top);
     renderPicker();
     stage = el("div","pm-stage");
@@ -1506,19 +1567,118 @@ function postMaker(root){
     panel = el("div"); root.appendChild(panel);
     rebuildControls(); render();
   }
+
+  /* ----- slides ----- */
+  function restoreDraft(){
+    var d = pmLoadDraft();
+    if (!d) return Promise.resolve();
+    var all = pmAllTemplates(), loads = [];
+    post.slides = d.slides.map(function(o){
+      var sl = newSlide(all.filter(function(t){ return t.id === o.tpl; })[0] || all[0]);
+      PM_SLIDE_KEYS.forEach(function(k){ if (o[k] != null) sl[k] = o[k]; });
+      [["img","imgSrc"],["img2","img2Src"],["inset","insetSrc"]].forEach(function(p){
+        if (o[p[0]]) loads.push(pmImageFrom(o[p[0]]).then(function(i){ sl[p[0]] = i; sl[p[1]] = o[p[0]]; }).catch(function(){}));
+      });
+      return sl;
+    });
+    post.cur = Math.min(d.cur || 0, post.slides.length - 1);
+    post.format = d.format || post.format;
+    s = post.slides[post.cur];
+    return Promise.all(loads);
+  }
+  function saveDraftSoon(){ clearTimeout(draftT); draftT = setTimeout(saveDraft, 500); }
+  function saveDraft(){
+    try { pmSaveDraft(post, true); }
+    catch(e){
+      try { pmSaveDraft(post, false); if (!draftWarned){ draftWarned = true; toast("Draft kept without the photos — device storage is full"); } } catch(e2){}
+    }
+  }
+  function drawThumb(c, sl){
+    loadOverlays(sl.tpl).then(function(){
+      var full = pmDraw(document.createElement("canvas"), sl.tpl, sl, { placeholder: placeholder, images: images, swipe: post.slides.length > 1 });
+      c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
+    });
+  }
+  function renderStrip(){
+    stripBox.innerHTML = "";
+    var n = post.slides.length;
+    var f = field(stripBox, "Slides", n === 1 ? "1 slide" : n + " slides");
+    var row = el("div","pm-slides"); f.appendChild(row);
+    slideThumbs = [];
+    post.slides.forEach(function(sl, i){
+      var b = el("button","pm-slide"); b.type = "button"; b.setAttribute("aria-pressed", String(i === post.cur));
+      var c = document.createElement("canvas"); c.width = 108; c.height = 135; b.appendChild(c);
+      b.appendChild(el("span", null, i === 0 ? "1 · Cover" : String(i + 1)));
+      b.addEventListener("click", function(){ selectSlide(i); });
+      row.appendChild(b); slideThumbs.push(c);
+      if (i !== post.cur) drawThumb(c, sl);
+    });
+    var add = el("button","pm-slide add","<b>+</b><span>Add slide</span>"); add.type = "button"; add.title = "Add a slide after this one";
+    add.addEventListener("click", addSlide);
+    row.appendChild(add);
+    var acts = el("div","seg"); acts.style.marginTop = "6px";
+    [["Duplicate", dupSlide, false], ["◀ Move", function(){ moveSlide(-1); }, post.cur === 0], ["Move ▶", function(){ moveSlide(1); }, post.cur === n - 1], ["Delete slide", delSlide, n === 1], ["New post", newPost, false]].forEach(function(a){
+      var b = el("button", null, a[0]); b.type = "button"; b.disabled = a[2]; if (a[2]) b.style.opacity = ".4";
+      b.addEventListener("click", a[1]); acts.appendChild(b);
+    });
+    f.appendChild(acts);
+  }
+  function selectSlide(i){
+    if (mode === "design"){ mode = "post"; designer = null; }
+    post.cur = i; s = post.slides[i];
+    renderStrip(); renderPicker(); rebuildControls(); render();
+  }
+  function addSlide(){
+    var all = pmAllTemplates();
+    var inner = all.filter(function(t){ return t.inner; })[0] || all[0];
+    post.slides.splice(post.cur + 1, 0, newSlide(inner));
+    selectSlide(post.cur + 1);
+  }
+  function dupSlide(){
+    var c = newSlide(s.tpl);
+    PM_SLIDE_KEYS.forEach(function(k){ c[k] = JSON.parse(JSON.stringify(s[k] == null ? null : s[k])); });
+    ["img","img2","inset","imgSrc","img2Src","insetSrc"].forEach(function(k){ c[k] = s[k]; });
+    post.slides.splice(post.cur + 1, 0, c);
+    selectSlide(post.cur + 1);
+  }
+  function moveSlide(dir){
+    var i = post.cur, j = i + dir;
+    if (j < 0 || j >= post.slides.length) return;
+    post.slides[i] = post.slides[j]; post.slides[j] = s;
+    selectSlide(j);
+  }
+  function slideHasWork(sl){ return !!(sl.img || sl.img2 || sl.inset || Object.keys(sl.text).some(function(k){ return (sl.text[k] || "").trim(); })); }
+  function delSlide(){
+    if (post.slides.length === 1) return;
+    if (slideHasWork(s) && !confirm("Delete slide " + (post.cur + 1) + "?")) return;
+    post.slides.splice(post.cur, 1);
+    selectSlide(Math.min(post.cur, post.slides.length - 1));
+  }
+  function newPost(){
+    if (post.slides.some(slideHasWork) && !confirm("Start a new post? The current slides will be cleared.")) return;
+    post.slides = [newSlide(pmAllTemplates().filter(function(t){ return !t.inner; })[0] || pmAllTemplates()[0])];
+    pmClearDraft();
+    selectSlide(0);
+  }
+
   function renderPicker(){
     top.innerHTML = "";
-    field(top, "Template");
+    field(top, "Template" + (post.slides.length > 1 ? " for slide " + (post.cur + 1) : ""));
     picker = el("div","pm-tpls"); top.appendChild(picker);
-    pmAllTemplates().forEach(function(t){
+    /* Cover layouts first for slide 1, inner-slide layouts first for the rest. */
+    var list = pmAllTemplates().slice().sort(function(a, b){ var ia = !!a.inner, ib = !!b.inner; if (ia === ib) return 0; return (post.cur > 0 ? ia : !ia) ? -1 : 1; });
+    list.forEach(function(t){
       var b = el("button","pm-tpl"); b.type = "button"; b.setAttribute("aria-pressed", String(t === s.tpl));
       var c = document.createElement("canvas"); b.appendChild(c);
-      var thumbState = { text:{}, on:{}, size:{}, zoom:1, fx:0.5, fy:0.5 };
-      loadOverlays(t).then(function(){
-        var full = pmDraw(document.createElement("canvas"), t, thumbState, { placeholder: placeholder, images: images });
-        c.width = 216; c.height = 270; c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
-      });
       c.width = 216; c.height = 270;
+      var key = t.id + ":" + (t.elements || []).length;
+      if (tplThumbs[key]) c.getContext("2d").drawImage(tplThumbs[key], 0, 0);
+      else loadOverlays(t).then(function(){
+        var thumbState = { text:{}, on:{}, size:{}, zoom:1, fx:0.5, fy:0.5 };
+        var full = pmDraw(document.createElement("canvas"), t, thumbState, { placeholder: placeholder, images: images });
+        var th = newCanvas(216, 270); th.getContext("2d").drawImage(full, 0, 0, 216, 270);
+        tplThumbs[key] = th; c.getContext("2d").drawImage(th, 0, 0);
+      });
       b.appendChild(el("b", null, (t.brand ? t.brand + " · " : "") + t.name));
       b.appendChild(el("span", null, t.shared ? "Team template" : t.custom ? "Saved on this device" : (t.page || "")));
       b.addEventListener("click", function(){ selectTemplate(t); });
@@ -1541,11 +1701,12 @@ function postMaker(root){
     });
     row.appendChild(pst);
     top.appendChild(row);
-    top.appendChild(el("p","vlead", mode === "design" ? "Designer: tap an element to select it, drag it on the preview, and tune it below. Save stores it on this device and downloads a file — put that file in the repo's templates folder (or send it over) and everyone gets it." : "Pick a template, drop the photo in, write the headline. Built-ins are copied from the Pubity Headline Canva file; your saved designs appear first."));
+    top.appendChild(el("p","vlead", mode === "design" ? "Designer: tap an element to select it, drag it on the preview, and tune it below. Save stores it on this device and downloads a file — put that file in the repo's templates folder (or send it over) and everyone gets it." : "Pick a template, drop the photo in, write the headline. Add slides for the rest of the carousel — each has its own template, photo and text. Your draft stays on this device until you start a new post."));
   }
   function selectTemplate(t){
     s.tpl = t; s.size = {}; s.offset = 0; s.on = {}; s.insetR = 0; s.insetX = null; s.insetY = null; s.upper = null;
     if (mode === "design") { designer = pmNewDesigner(t); }
+    tplThumbs = {}; /* a saved design may have changed */
     renderPicker(); rebuildControls(); render();
   }
   function loadOverlays(t){
@@ -1592,10 +1753,14 @@ function postMaker(root){
     });
     var head = texts.filter(function(e){ return e.key === "headline"; })[0];
     if (head){
-      slider(panel, "Text size", 24, 180, 0.5, s.size.headline || head.size, function(v){ return v + " px" + (Math.abs(v - head.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size.headline = v; go(); });
-      slider(panel, "Text position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
+      slider(panel, (head.label || "Text") + " size", 24, 180, 0.5, s.size.headline || head.size, function(v){ return v + " px" + (Math.abs(v - head.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size.headline = v; go(); });
+      slider(panel, (head.label || "Text") + " position", -400, 400, 2, s.offset, function(v){ return (v>0?"+":"") + v + " px"; }, function(v){ s.offset = v; go(); });
       segmented(panel, "Case", [{label:"UPPERCASE",value:"up"},{label:"As typed",value:"as"}], (s.upper == null ? head.upper : s.upper) ? "up" : "as", function(v){ s.upper = v === "up"; go(); });
     }
+    texts.forEach(function(e){ /* other multi-line boxes (inner-slide body copy) get a size slider too; the fit still shrinks them when needed */
+      if (e.key === "headline" || !e.area) return;
+      slider(panel, (e.label || e.key) + " size", 16, 120, 0.5, s.size[e.key] || e.size, function(v){ return v + " px" + (Math.abs(v - e.size) < 0.01 ? " (template)" : ""); }, function(v){ s.size[e.key] = v; go(); });
+    });
     if (!t.noPhoto || cardEl){
       slider(panel, t.split ? "Top photo zoom" : cardEl ? "Screenshot zoom" : "Photo zoom", 100, 300, 1, Math.round(s.zoom*100), function(v){ return v + "%"; }, function(v){ s.zoom = v/100; go(); });
       if (t.split) slider(panel, "Bottom photo zoom", 100, 300, 1, Math.round(s.zoom2*100), function(v){ return v + "%"; }, function(v){ s.zoom2 = v/100; go(); });
@@ -1603,7 +1768,9 @@ function postMaker(root){
     var toggles = (t.elements||[]).filter(function(e){ return e.optional && e.type !== "circle"; });
     var f = field(panel, "Extras"); var box = el("div","seg");
     toggles.forEach(function(e){
-      var b = el("button", null, e.label || e.type); b.type = "button"; b.setAttribute("aria-pressed", String(pmElOn(e, s)));
+      var lbl = e.label || e.type;
+      if (e.type === "swipe" && !e.always && post.slides.length < 2) lbl += " (shows with 2+ slides)";
+      var b = el("button", null, lbl); b.type = "button"; b.setAttribute("aria-pressed", String(pmElOn(e, s)));
       b.addEventListener("click", function(){ s.on[e.id] = !pmElOn(e, s); b.setAttribute("aria-pressed", String(s.on[e.id])); go(); });
       box.appendChild(b);
     });
@@ -1611,13 +1778,27 @@ function postMaker(root){
     g.addEventListener("click", function(){ s.guides = !s.guides; g.setAttribute("aria-pressed", String(s.guides)); go(); });
     box.appendChild(g); f.appendChild(box);
     button(panel, "Reset photo position", "ghost", function(){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; rebuildControls(); render(); }).style.marginTop = "4px";
-    segmented(panel, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], s.format, function(v){ s.format = v; });
+    segmented(panel, "Export as", [{label:"JPG (smaller)",value:"image/jpeg"},{label:"PNG",value:"image/png"}], post.format, function(v){ post.format = v; pending = null; saveDraftSoon(); });
+    var n = post.slides.length, dlIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>';
     var exportRow = el("div","row"); exportRow.style.marginTop = "14px";
-    var saveB = el("button","btn",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>Save post');
+    if (n > 1){
+      var allB = el("button","btn", dlIcon + "Save all " + n + " slides");
+      allB.addEventListener("click", function(){ saveAll(); });
+      exportRow.appendChild(allB);
+    }
+    var saveB = el("button","btn" + (n > 1 ? " ghost" : ""), dlIcon + (n > 1 ? "Save slide " + (post.cur + 1) : "Save post"));
     saveB.addEventListener("click", function(){ exportPost(false); });
-    var copyB = el("button","btn ghost","Copy"); copyB.addEventListener("click", function(){ exportPost(true); });
-    exportRow.appendChild(saveB); exportRow.appendChild(copyB); panel.appendChild(exportRow);
-    panel.appendChild(el("div","note","Exports at 1080×1350. On iPhone you can also press and hold the preview to save it straight to Photos."));
+    var copyB = el("button","btn ghost", n > 1 ? "Copy slide " + (post.cur + 1) : "Copy"); copyB.addEventListener("click", function(){ exportPost(true); });
+    exportRow.appendChild(saveB); exportRow.appendChild(copyB);
+    if (pending && pending.files.length > pending.next){
+      var nextB = el("button","btn", dlIcon + "Save slide " + (pending.next + 1) + " of " + pending.files.length);
+      nextB.addEventListener("click", function(){ saveNextPending(); });
+      exportRow.appendChild(nextB);
+    }
+    panel.appendChild(exportRow);
+    panel.appendChild(el("div","note", n > 1
+      ? "Exports every slide at 1080×1350 as numbered files (name-1, name-2…). On iPhone, Save all opens the share sheet so all " + n + " images go to Photos in one go."
+      : "Exports at 1080×1350. On iPhone you can also press and hold the preview to save it straight to Photos."));
   }
 
   /* ----- designer ----- */
@@ -1717,6 +1898,11 @@ function postMaker(root){
       if (e.kw === "color"){ var kf = field(ctl, "Keyword colour"); var ki = document.createElement("input"); ki.type = "color"; ki.value = pmHex(e.kwColor || "#000aff"); ki.addEventListener("input", function(){ e.kwColor = ki.value; render(); }); kf.appendChild(ki); }
       slider(ctl, "Shadow strength", 0, 1, 0.05, e.shadow ? e.shadow[0] : 0, function(v){ return Math.round(v*100) + "%"; }, function(v){ e.shadow = [v, e.shadow ? e.shadow[1] : 4, e.shadow ? e.shadow[2] : 30]; render(); });
       segmented(ctl, "Input type", [{label:"Multi-line",value:"area"},{label:"Single line",value:"line"}], e.area ? "area" : "line", function(v){ e.area = v === "area"; });
+      slider(ctl, "Lines before the text shrinks", 1, 40, 1, e.maxLines || (e.key === "headline" ? 3 : 8), function(v){ return v + (v === 1 ? " line" : " lines"); }, function(v){ e.maxLines = v; render(); });
+      if (e.key !== "headline" && t.elements.some(function(x){ return x.type === "text" && x.key === "headline" && x !== e; })){
+        segmented(ctl, "Placement", [{label:"Fixed (box position)",value:"fixed"},{label:"Below the headline",value:"below"}], e.below ? "below" : "fixed", function(v){ if (v === "below") e.below = "headline"; else delete e.below; rebuildControls(); render(); });
+        if (e.below) slider(ctl, "Gap under the headline", 0, 300, 2, e.gap == null ? 40 : e.gap, function(v){ return v + " px"; }, function(v){ e.gap = v; render(); });
+      }
     }
     if (e.type === "overlay"){
       dropZone(ctl, { accept:"image/png,image/*", label: e.src ? "Replace the overlay PNG" : "Choose the overlay PNG", hint:"export the Canva page with the photo and text removed, transparent background", onFile:function(f){
@@ -1736,7 +1922,10 @@ function postMaker(root){
       if (e.y != null) num("Rule y", "y", 0, 1350, 1);
     }
     if (e.type === "logo"){ num("Centre x", "x", 0, 1080, 1); num("Centre y", "y", 0, 1350, 1); num("Height", "h", 16, 400, 1); }
-    if (e.type === "swipe"){ num("Left", "x", 0, 900, 1); num("Centre y", "y", 10, 1340, 1); }
+    if (e.type === "swipe"){
+      num("Left", "x", 0, 900, 1); num("Centre y", "y", 10, 1340, 1);
+      segmented(ctl, "Draws", [{label:"Only when the post has 2+ slides",value:"multi"},{label:"Always",value:"always"}], e.always ? "always" : "multi", function(v){ e.always = v === "always"; render(); });
+    }
     if (e.type === "pill"){
       textBox(ctl, "Default text", "TRENDING", e.text, function(v){ e.text = v; render(); });
       num("Left", "x", 0, 1080, 1); num("Top", "y", 0, 1350, 1); slider(ctl, "Width", 60, 600, 1, e.w || 143, function(v){ return v + " px"; }, function(v){ e.w = v; render(); }); slider(ctl, "Height", 24, 160, 1, e.h || 48, function(v){ return v + " px"; }, function(v){ e.h = v; render(); }); slider(ctl, "Text size", 12, 100, 0.5, e.size || 33, function(v){ return v + " px"; }, function(v){ e.size = v; render(); });
@@ -1769,11 +1958,13 @@ function postMaker(root){
   /* ----- shared bits ----- */
   function loadInto(key, file){
     if (!/^image\//.test(file.type)) { toast("That's not an image file"); return; }
+    var sl = s;
     loadBlobImage(file).then(function(i){
-      s[key] = i;
-      if (key === "img"){ s.zoom = 1; s.fx = 0.5; s.fy = 0.5; }
-      if (key === "img2"){ s.zoom2 = 1; s.fx2 = 0.5; s.fy2 = 0.5; }
+      sl[key] = i; sl[key + "Src"] = null;
+      if (key === "img"){ sl.zoom = 1; sl.fx = 0.5; sl.fy = 0.5; }
+      if (key === "img2"){ sl.zoom2 = 1; sl.fx2 = 0.5; sl.fy2 = 0.5; }
       render(); toast("Added");
+      setTimeout(function(){ try { if (sl[key] === i) { sl[key + "Src"] = pmShrinkImage(i); saveDraftSoon(); } } catch(e){} }, 0);
     }).catch(function(){ toast("Couldn't read that image"); });
   }
   function go(){ clearTimeout(timer); timer = setTimeout(render, 60); }
@@ -1781,19 +1972,56 @@ function postMaker(root){
   function render(){
     var t = curTpl();
     loadOverlays(t).then(function(){
-      try { pmDraw(canvas, t, s, { guides: s.guides, placeholder: placeholder, images: images, select: mode === "design" ? designer.sel : null }); }
+      try { pmDraw(canvas, t, s, { guides: s.guides, placeholder: placeholder, images: images, select: mode === "design" ? designer.sel : null, swipe: mode === "design" || post.slides.length > 1 }); }
       catch(e){ toast("Render error: " + e.message); }
+      var th = slideThumbs[post.cur];
+      if (th) th.getContext("2d").drawImage(canvas, 0, 0, th.width, th.height);
+      saveDraftSoon();
     });
+  }
+  function slug(){ return ((post.slides[0].text.headline) || "post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "post"; }
+  async function renderSlide(sl, t){
+    t = t || sl.tpl;
+    await loadOverlays(t);
+    var out = pmDraw(document.createElement("canvas"), t, sl, { placeholder: placeholder, images: images, swipe: post.slides.length > 1 });
+    return canvasToBlob(out, post.format, 0.92);
   }
   async function exportPost(copy){
     var t = curTpl();
-    await loadOverlays(t);
-    var out = pmDraw(document.createElement("canvas"), t, s, { placeholder: placeholder, images: images });
-    var blob = await canvasToBlob(out, s.format, 0.92);
+    var blob = await renderSlide(s, t);
     if (!blob) { toast("Export failed"); return; }
     if (copy) return copyImage(blob);
-    var slug = ((s.text.headline) || "post").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "post";
-    saveFile((t.id || "post") + "-" + slug + "." + extFor(s.format), blob);
+    var name = post.slides.length > 1 ? slug() + "-" + (post.cur + 1) : (t.id || "post") + "-" + slug();
+    saveFile(name + "." + extFor(post.format), blob);
+  }
+  /* Save all: every slide as name-1, name-2… On iPhone/iPad the share sheet takes all the images at once (Safari only allows one download per tap); if that isn't available, it falls back to one tap per slide. */
+  async function saveAll(){
+    var n = post.slides.length, base = slug(), ext = extFor(post.format), files = [];
+    for (var i = 0; i < n; i++){
+      var blob = await renderSlide(post.slides[i]);
+      if (!blob) { toast("Export failed on slide " + (i + 1)); return; }
+      files.push(new File([blob], base + "-" + (i + 1) + "." + ext, { type: post.format }));
+    }
+    if (PM_TOUCH && navigator.share && navigator.canShare){
+      try {
+        if (navigator.canShare({ files: files })) { await navigator.share({ files: files, title: base }); toast(n + " slides shared"); return; }
+      } catch(e){ if (e && e.name === "AbortError") return; }
+    }
+    if (!PM_TOUCH && !DL){
+      for (var j = 0; j < files.length; j++){ await saveFile(files[j].name, files[j]); await new Promise(function(r){ setTimeout(r, 450); }); }
+      toast("Saved " + n + " slides to your downloads");
+      return;
+    }
+    pending = { files: files, next: 0 };
+    await saveNextPending();
+  }
+  async function saveNextPending(){
+    if (!pending) return;
+    var f = pending.files[pending.next++];
+    await saveFile(f.name, f);
+    if (pending.next >= pending.files.length){ pending = null; toast("All slides saved"); }
+    else toast("Saved slide " + pending.next + " of " + pending.files.length + " — tap Save slide " + (pending.next + 1) + " for the next");
+    rebuildControls();
   }
 
   /* drag: post mode moves the photo; designer mode moves the selected element (or selects what you tap) */
@@ -1859,8 +2087,8 @@ function postMaker(root){
 }
 
 TOOLS.unshift({ id:"postmaker", cat:"Image", icon:"post", name:"Post maker",
-  desc:"Pubity + @dads layouts, plus a designer to make your own templates",
-  lead:"Drop a photo in, write the headline, export at full size. Open the designer to lay out a template exactly how it should look and save it for everyone.",
+  desc:"Pubity + @dads layouts, carousel slides, plus a designer to make your own templates",
+  lead:"Drop a photo in, write the headline, add the carousel slides and export them all at full size. Open the designer to lay out a template exactly how it should look and save it for everyone.",
   build:function(root){ postMaker(root); }
 });
 
