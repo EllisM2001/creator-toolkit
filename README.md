@@ -49,6 +49,25 @@ and badges, at 1080×1350.
 Drop in the photo, write the headline, and adjust size, position, keywords, photo zoom
 and the circle inset.
 
+### Carousel slides
+
+The cover is slide 1. **+ Add slide** appends the next slide of the post; each slide has
+its own template, photo, text and settings, and the strip above the preview lets you
+select, duplicate, reorder and delete them. Three inner-slide layouts come built in:
+
+| Template | Use |
+| --- | --- |
+| Pubity · Text page | Black page, P + rule, body copy in Poppins that shrinks to fit |
+| Pubity · Title + text | Vanguard title with the body copy flowing underneath |
+| Pubity · Photo + caption | Full-bleed photo, the black fade and a short caption |
+
+The SWIPE tag on the cover only draws once the post has two or more slides (the designer
+can mark a SWIPE element as always on). **Save all** exports every slide at 1080×1350 as
+`<headline>-1.jpg`, `-2.jpg`, …; on iPhone it opens the share sheet so all the images go to
+Photos in one go, and falls back to one tap per slide where that isn't available. The
+draft (all slides, photos included) is kept in the browser's local storage, so reloading
+brings it back; **New post** clears it.
+
 ### Designing your own templates
 
 Press **Design a template** in the Post maker. It copies the current template so you can
@@ -56,7 +75,9 @@ lay it out exactly how it should look: tap an element to select it, drag it on t
 and tune font, size, line height, spacing, alignment, box and colour below. Add text boxes,
 fades, the P + rule, the P logo, SWIPE, pills, handles, circle insets, or an **overlay PNG**
 (a Canva page exported with the photo and text removed, transparent background) for a
-pixel-exact copy. Elements can be marked as always on or as a toggle in the post tool.
+pixel-exact copy. Elements can be marked as always on or as a toggle in the post tool; a
+text box can follow the headline instead of sitting at a fixed position, and each box has
+a line budget before the auto-fit shrinks it.
 
 **Save template** keeps it on your device. **Save + download file** also gives you a
 `template-<id>.json`. To share it with everyone, add it to `templates/custom.json` in the
