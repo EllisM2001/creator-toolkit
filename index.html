@@ -1264,6 +1264,24 @@ function pmWrapWords(ctx, words, maxW){
   lines.push(line);
   return lines;
 }
+/* Re-wrap at the narrowest width that still gives the same number of lines, so lines come out even and no word is stranded. */
+function pmBalance(ctx, tokens, maxW, n){
+  var best = pmWrapWords(ctx, tokens, maxW), lo = maxW * 0.3, hi = maxW;
+  for (var i = 0; i < 16; i++){
+    var mid = (lo + hi) / 2, L = pmWrapWords(ctx, tokens, mid);
+    var fits = L.length <= n && !L.some(function(l){ return pmLineWidth(ctx, l) > mid + 0.5; });
+    if (fits){ best = L; hi = mid; } else lo = mid;
+  }
+  return best;
+}
+/* Stretches a black fade upward when the headline would start above its dark part, so text never sits on bare photo. */
+function pmFadeFor(e, m){
+  if (!m || e.curve !== "black" || e.noFit) return e;
+  var want = m.capTop - 0.38 * e.h;
+  if (e.y <= want) return e;
+  var d = e.y - want;
+  return Object.assign({}, e, { y: e.y - d, h: e.h + d });
+}
 /* Draws (or measures) a text element. e: text element spec; text/keywords/size override/offset come from state. */
 function pmBlock(ctx, e, text, opts, measureOnly){
   opts = opts || {};
@@ -1271,16 +1289,25 @@ function pmBlock(ctx, e, text, opts, measureOnly){
   var f = PM_FONTS[e.font] || PM_FONTS.vanguard;
   var size = opts.size || e.size, upper = opts.upper == null ? e.upper : opts.upper;
   var tokens = pmTokens(text, upper, opts.keywords), lines, tries = 0;
+  /* Auto-fit: shrink until the block fits its line budget and stays inside the page. Forced line breaks (Enter) are respected. */
+  var hasBr = tokens.some(function(t){ return t.br; });
+  var maxLines = e.maxLines || (e.key === "headline" ? 3 : 8);
+  var floor = Math.max(24, e.size * 0.5);
+  var lh, capH, blockH, top, base;
   for (;;){
     pmFont(ctx, e.font, size, null, e.ls);
     lines = pmWrapWords(ctx, tokens, e.w);
+    lh = e.lh < 3 ? size * e.lh : e.lh * (size / e.size);
+    capH = size * f.cap; blockH = lines.length * lh;
+    base = e.anchor === "bottom" ? e.y - blockH : e.anchor === "middle" ? e.y - blockH/2 : e.y;
+    top = base + (opts.offset || 0);
     var tooWide = lines.some(function(l){ return pmLineWidth(ctx, l) > e.w + 0.5; });
-    if ((lines.length > 8 || tooWide) && size > 18 && tries++ < 60) { size = Math.round((size - 1) * 10) / 10; continue; }
+    var tooMany = (!hasBr && lines.length > maxLines) || lines.length > 8;
+    var outside = base + blockH > 1350 - 40 || (e.anchor !== "top" && base < (e.minTop || 560));
+    if ((tooWide || tooMany || outside) && size > floor && tries++ < 400) { size = Math.round((size - 0.5) * 10) / 10; continue; }
     break;
   }
-  var lh = e.lh < 3 ? size * e.lh : e.lh * (size / e.size);
-  var capH = size * f.cap, blockH = lines.length * lh;
-  var top = (e.anchor === "bottom" ? e.y - blockH : e.anchor === "middle" ? e.y - blockH/2 : e.y) + (opts.offset || 0);
+  if (!hasBr && lines.length > 1 && e.balance !== false) lines = pmBalance(ctx, tokens, e.w, lines.length);
   var capTop = top + (lh - capH)/2;
   if (!measureOnly){
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
@@ -1408,12 +1435,16 @@ function pmDraw(canvas, tpl, s, opts){
     if (tpl.photoH){ ctx.fillStyle = tpl.bg || "#000"; ctx.fillRect(0, tpl.photoH, W, H - tpl.photoH); }
   }
   var boxes = {}, ruleEl = null, headMetrics = null;
+  function textFor(e){ return (s.text && s.text[e.key] || "").trim() || e.placeholder || (e.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here"); }
+  function textOpts(e){ return { size: s.size && s.size[e.key], offset: e.key === "headline" ? s.offset : 0, keywords: s.keywords, upper: e.key === "headline" && s.upper != null ? s.upper : null }; }
+  var headPre = null;
+  (tpl.elements || []).forEach(function(e){ if (!headPre && e.type === "text" && e.key === "headline" && pmElOn(e, s)) headPre = pmBlock(ctx, e, textFor(e), textOpts(e), true); });
   (tpl.elements || []).forEach(function(e, idx){
     if (!e.id) e.id = e.type + "-" + idx;
     if (!pmElOn(e, s)) return;
     var text;
     switch (e.type){
-      case "fade": pmFade(ctx, W, H, e); boxes[e.id] = pmBox(e); break;
+      case "fade": pmFade(ctx, W, H, pmFadeFor(e, headPre)); boxes[e.id] = pmBox(e); break;
       case "overlay":
         var im = opts.images && opts.images[e.id];
         if (im) ctx.drawImage(im, e.x, e.y, e.w, e.h);
@@ -1423,11 +1454,11 @@ function pmDraw(canvas, tpl, s, opts){
       case "logo": pmLogo(ctx, e.x, e.y, e.h); boxes[e.id] = pmBox(e); break;
       case "rule": ruleEl = e; break; /* drawn after the headline is measured */
       case "text":
-        text = (s.text && s.text[e.key] || "").trim() || e.placeholder || (e.upper ? "YOUR HEADLINE GOES HERE" : "Your headline goes here");
-        var m = pmBlock(ctx, e, text, { size: s.size && s.size[e.key], offset: e.key === "headline" ? s.offset : 0, keywords: s.keywords, upper: e.key === "headline" && s.upper != null ? s.upper : null }, true);
+        text = textFor(e);
+        var m = pmBlock(ctx, e, text, textOpts(e), true);
         if (e.key === "headline" && !headMetrics) headMetrics = m;
         if (ruleEl && e.key === "headline" && ruleEl.y == null){ pmRule(ctx, W, m.capTop - 40); boxes[ruleEl.id] = { x:40, y:m.capTop-60, w:1000, h:40 }; ruleEl = null; }
-        pmBlock(ctx, e, text, { size: s.size && s.size[e.key], offset: e.key === "headline" ? s.offset : 0, keywords: s.keywords, upper: e.key === "headline" && s.upper != null ? s.upper : null });
+        pmBlock(ctx, e, text, textOpts(e));
         boxes[e.id] = pmBox(e, m); break;
       case "pill": pmPill(ctx, e, (s.text && s.text["pill:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
       case "handle": pmHandle(ctx, e, (s.text && s.text["handle:"+e.id]) || e.text); boxes[e.id] = pmBox(e); break;
@@ -1496,9 +1527,16 @@ function postMaker(root){
     row.appendChild(mk);
     var imp = el("button","btn ghost","Import template file"); imp.type = "button";
     var fin = document.createElement("input"); fin.type = "file"; fin.accept = "application/json,.json"; fin.style.display = "none";
-    fin.addEventListener("change", function(){ var f = fin.files && fin.files[0]; if (!f) return; var r = new FileReader(); r.onload = function(){ try { var t = JSON.parse(r.result); if (!t.elements) throw 0; t.custom = true; delete t.shared; pmSaveCustom(t); s.tpl = t; renderPicker(); rebuildControls(); render(); toast("Template added"); } catch(e){ toast("That isn't a template file"); } }; r.readAsText(f); });
+    function addTemplateText(txt){ try { var t = JSON.parse(txt); if (!t || !t.elements) throw 0; t.custom = true; delete t.shared; pmSaveCustom(t); s.tpl = t; renderPicker(); rebuildControls(); render(); toast("Template added"); } catch(e){ toast("That isn't a template"); } }
+    fin.addEventListener("change", function(){ var f = fin.files && fin.files[0]; if (!f) return; var r = new FileReader(); r.onload = function(){ addTemplateText(r.result); }; r.readAsText(f); });
     imp.appendChild(fin); imp.addEventListener("click", function(){ fin.click(); });
     row.appendChild(imp);
+    var pst = el("button","btn ghost","Paste template"); pst.type = "button";
+    pst.addEventListener("click", function(){
+      var ask = function(){ var txt = prompt("Paste the template JSON here"); if (txt) addTemplateText(txt); };
+      if (navigator.clipboard && navigator.clipboard.readText) navigator.clipboard.readText().then(function(txt){ if (txt && /^\s*\{/.test(txt)) addTemplateText(txt); else ask(); }).catch(ask); else ask();
+    });
+    row.appendChild(pst);
     top.appendChild(row);
     top.appendChild(el("p","vlead", mode === "design" ? "Designer: tap an element to select it, drag it on the preview, and tune it below. Save stores it on this device and downloads a file — put that file in the repo's templates folder (or send it over) and everyone gets it." : "Pick a template, drop the photo in, write the headline. Built-ins are copied from the Pubity Headline Canva file; your saved designs appear first."));
   }

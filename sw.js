@@ -1,4 +1,4 @@
-var CACHE = "toolkit-v6";
+var CACHE = "toolkit-v7";
 var ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png", "pubity-p.png",
   "fonts/VanguardCF-Bold.woff2", "fonts/Poppins-Bold.woff2", "fonts/Poppins-ExtraBold.woff2", "fonts/ImpactLTStd.woff2", "fonts/Arimo-Regular.woff2",
   "fonts/GeneralSans-Medium.woff2", "fonts/GeneralSans-MediumItalic.woff2", "fonts/GeneralSans-Semibold.woff2", "fonts/GeneralSans-Bold.woff2"];
